@@ -114,11 +114,13 @@ export default async function ResultsPage({
         <h2 className="text-xl font-semibold">Per-question feedback</h2>
         {(questions ?? []).map((q) => {
           const answer = (answers ?? []).find((a) => a.question_id === q.id);
+          const failed = answer?.feedback_status === "failed";
           return (
             <Card key={q.id}>
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Badge variant="secondary">{q.subject}</Badge>
+                  {failed && <Badge variant="destructive">Not scored</Badge>}
                 </div>
                 <CardTitle className="text-base font-medium">
                   {q.question_text}
@@ -132,18 +134,28 @@ export default async function ResultsPage({
                     className="aspect-video w-full max-w-md rounded-lg bg-black"
                   />
                 )}
-                <div>
-                  <p className="text-sm font-medium">Transcript</p>
+                {failed ? (
                   <p className="text-sm text-muted-foreground">
-                    {answer?.transcript || "—"}
+                    We couldn&apos;t process this answer due to a technical
+                    issue on our end (nothing wrong with your answer) — it
+                    isn&apos;t included in your scores above.
                   </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Feedback</p>
-                  <p className="whitespace-pre-line text-sm text-muted-foreground">
-                    {answer?.answer_feedback || "—"}
-                  </p>
-                </div>
+                ) : (
+                  <>
+                    <div>
+                      <p className="text-sm font-medium">Transcript</p>
+                      <p className="text-sm text-muted-foreground">
+                        {answer?.transcript || "—"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Feedback</p>
+                      <p className="whitespace-pre-line text-sm text-muted-foreground">
+                        {answer?.answer_feedback || "—"}
+                      </p>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           );

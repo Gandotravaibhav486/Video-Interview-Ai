@@ -39,7 +39,7 @@ export function useInterviewRecorder() {
   const setupCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
+        video: { width: { ideal: 640 }, height: { ideal: 480 } },
         audio: true,
       });
       streamRef.current = stream;
@@ -84,7 +84,14 @@ export function useInterviewRecorder() {
     const mimeType = MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")
       ? "video/webm;codecs=vp8,opus"
       : "video/webm";
-    const recorder = new MediaRecorder(streamRef.current, { mimeType });
+    // Keep recordings well under STT provider upload limits (e.g. Groq's
+    // 413 on oversized files) even at the full 120s question time limit:
+    // (400kbps + 48kbps) * 120s / 8 ~= 6.7MB.
+    const recorder = new MediaRecorder(streamRef.current, {
+      mimeType,
+      videoBitsPerSecond: 400_000,
+      audioBitsPerSecond: 48_000,
+    });
     recorder.ondataavailable = (e) => {
       if (e.data.size > 0) chunksRef.current.push(e.data);
     };

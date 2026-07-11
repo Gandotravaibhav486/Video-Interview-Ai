@@ -21,24 +21,32 @@ export async function maybeFinalizeSession(sessionId: string): Promise<void> {
     .eq("session_id", sessionId);
   if (!questions || questions.length === 0) return;
 
-  const { data: answers } = await supabase
+  const { data: allAnswers } = await supabase
     .from("answers")
     .select("*")
     .in(
       "question_id",
       questions.map((q) => q.id)
     );
-  if (!answers || answers.length < questions.length) return;
+  if (!allAnswers || allAnswers.length < questions.length) return;
 
-  if (answers.some((a) => a.feedback_status === "failed")) {
+  // Wait until every answer has reached a terminal state, but don't let one
+  // answer's failure (e.g. an oversized upload rejected by the STT
+  // provider) discard feedback that was successfully generated for the
+  // others - only exclude the failed ones from aggregation below.
+  const stillProcessing = allAnswers.some(
+    (a) => a.feedback_status !== "complete" && a.feedback_status !== "failed"
+  );
+  if (stillProcessing) return;
+
+  const answers = allAnswers.filter((a) => a.feedback_status === "complete");
+  if (answers.length === 0) {
     await supabase
       .from("interview_sessions")
       .update({ status: "failed" })
       .eq("id", sessionId);
     return;
   }
-
-  if (!answers.every((a) => a.feedback_status === "complete")) return;
 
   const paramTotals: Record<
     string,
@@ -88,11 +96,13 @@ export async function maybeFinalizeSession(sessionId: string): Promise<void> {
   }
 
   const summaryFeedback = await summarizeSession(
-    questions.map((q) => ({
-      questionText: q.question_text,
-      subject: q.subject,
-      feedback: answers.find((a) => a.question_id === q.id)?.answer_feedback ?? "",
-    }))
+    questions
+      .filter((q) => answers.some((a) => a.question_id === q.id))
+      .map((q) => ({
+        questionText: q.question_text,
+        subject: q.subject,
+        feedback: answers.find((a) => a.question_id === q.id)?.answer_feedback ?? "",
+      }))
   );
 
   await supabase

@@ -18,11 +18,26 @@ export default async function AppLayout({
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
+  let { data: profile } = await supabase
     .from("profiles")
     .select("is_admin")
     .eq("id", user.id)
-    .single();
+    .maybeSingle();
+
+  // Normally handle_new_user() creates this row on signup. Self-heal here
+  // in case that trigger didn't fire, so a missing profile never blocks
+  // the rest of the app (e.g. the interview_sessions FK to profiles.id).
+  if (!profile) {
+    const { data: created } = await supabase
+      .from("profiles")
+      .insert({
+        id: user.id,
+        full_name: (user.user_metadata?.full_name as string | undefined) ?? null,
+      })
+      .select("is_admin")
+      .single();
+    profile = created;
+  }
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
