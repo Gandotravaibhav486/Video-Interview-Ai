@@ -28,6 +28,8 @@ export async function createInterviewSession(formData: FormData) {
   ) as InterviewType;
   const questionCount = Number(formData.get("question_count") ?? 5);
 
+  const subjects = parseList(formData.get("subjects"));
+
   const { data: bank } = await supabase
     .from("question_bank")
     .select("*")
@@ -39,6 +41,7 @@ export async function createInterviewSession(formData: FormData) {
     companies: company ? [company] : parseList(formData.get("target_companies")),
     interviewType,
     questionCount,
+    subjects: subjects.length > 0 ? subjects : undefined,
   });
 
   if (selected.length === 0) {

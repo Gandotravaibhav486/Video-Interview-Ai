@@ -1,15 +1,13 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { saveOnboarding } from "@/lib/actions/onboarding";
+import {
+  uploadResume,
+  skipResumeUpload,
+  saveProfileDetails,
+} from "@/lib/actions/onboarding";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Card,
   CardContent,
@@ -18,7 +16,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; warning?: string }>;
+}) {
+  const { error, warning } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -30,17 +33,56 @@ export default async function OnboardingPage() {
     .eq("id", user!.id)
     .single();
 
+  if (profile?.onboarding_completed) {
+    redirect("/dashboard");
+  }
+
+  if (!profile?.resume_prompted) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload your resume</CardTitle>
+          <CardDescription>
+            You can skip this if you don&apos;t have one ready.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-6">
+          <form action={uploadResume} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="resume">Resume (PDF)</Label>
+              <Input
+                id="resume"
+                name="resume"
+                type="file"
+                accept="application/pdf"
+                required
+              />
+            </div>
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            <Button type="submit">Upload</Button>
+          </form>
+          <form action={skipResumeUpload}>
+            <Button type="submit" variant="ghost" className="w-full">
+              Skip for now
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <Card className="mx-auto max-w-xl">
+    <Card>
       <CardHeader>
-        <CardTitle>Tell us about your target role</CardTitle>
+        <CardTitle>Confirm your details</CardTitle>
         <CardDescription>
-          This tailors which questions from the bank get picked for your mock
-          interviews.
+          {warning === "resume_parse_failed"
+            ? "We couldn't read that resume, so these are blank — fill them in manually."
+            : "We've pre-filled these from your resume — edit anything before continuing."}
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form action={saveOnboarding} className="flex flex-col gap-4">
+        <form action={saveProfileDetails} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="full_name">Full name</Label>
             <Input
@@ -70,28 +112,6 @@ export default async function OnboardingPage() {
               placeholder="tcs, infosys, amazon"
               defaultValue={profile?.target_companies?.join(", ") ?? ""}
             />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="experience_level">Experience level</Label>
-            <Select
-              name="experience_level"
-              defaultValue={profile?.experience_level ?? "campus_fresher"}
-            >
-              <SelectTrigger id="experience_level" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="campus_fresher">Campus fresher</SelectItem>
-                <SelectItem value="experienced">Experienced</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="resume">Resume (PDF, optional)</Label>
-            <Input id="resume" name="resume" type="file" accept="application/pdf" />
-            <p className="text-xs text-muted-foreground">
-              We summarize your resume to help personalize question selection.
-            </p>
           </div>
           <Button type="submit" className="mt-2">
             Save and continue

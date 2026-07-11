@@ -27,6 +27,7 @@ export interface SelectQuestionsParams {
   companies: string[];
   interviewType: InterviewType;
   questionCount: number;
+  subjects?: string[];
 }
 
 export function selectSessionQuestions({
@@ -35,12 +36,16 @@ export function selectSessionQuestions({
   companies,
   interviewType,
   questionCount,
+  subjects,
 }: SelectQuestionsParams): QuestionBankEntry[] {
   const roleCandidates = role ? [role] : [];
   const typeFilter = TYPE_FILTER[interviewType];
 
   const eligible = bank.filter((q) => {
     if (typeFilter && !typeFilter.includes(q.question_type)) return false;
+    if (subjects && subjects.length > 0 && !subjects.includes(q.subject)) {
+      return false;
+    }
     if (interviewType === "company_specific" && companies.length > 0) {
       if (!tagMatches(q.company_tags, companies)) return false;
     }
@@ -59,13 +64,15 @@ export function selectSessionQuestions({
     list.sort(() => Math.random() - 0.5);
   }
 
-  const subjects = Array.from(bySubject.keys()).sort(() => Math.random() - 0.5);
+  const eligibleSubjects = Array.from(bySubject.keys()).sort(
+    () => Math.random() - 0.5
+  );
   const selected: QuestionBankEntry[] = [];
 
   let round = 0;
-  while (selected.length < questionCount && subjects.length > 0) {
+  while (selected.length < questionCount && eligibleSubjects.length > 0) {
     let pickedAny = false;
-    for (const subject of subjects) {
+    for (const subject of eligibleSubjects) {
       if (selected.length >= questionCount) break;
       const list = bySubject.get(subject)!;
       if (round < list.length) {

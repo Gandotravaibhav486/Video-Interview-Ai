@@ -31,6 +31,14 @@ export type ScoreParameter = {
 export type ScoreBreakdown = Record<string, ScoreParameter>;
 export type SubjectBreakdown = Record<string, number>;
 
+export type SuggestedInterview = {
+  role: string;
+  company: string | null;
+  interview_type: InterviewType;
+  subjects: string[];
+  rationale: string;
+}
+
 export type Profile = {
   id: string;
   full_name: string | null;
@@ -39,6 +47,10 @@ export type Profile = {
   experience_level: ExperienceLevel;
   resume_url: string | null;
   resume_parsed_summary: string | null;
+  resume_skills: string[];
+  suggested_interviews: SuggestedInterview[];
+  resume_prompted: boolean;
+  onboarding_completed: boolean;
   is_admin: boolean;
   created_at: string;
   updated_at: string;

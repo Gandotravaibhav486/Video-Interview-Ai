@@ -27,13 +27,22 @@ export async function signIn(formData: FormData) {
   const password = String(formData.get("password"));
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const {
+    error,
+    data: { user },
+  } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     redirect(`/login?error=${encodeURIComponent(error.message)}`);
   }
 
-  redirect("/dashboard");
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("onboarding_completed")
+    .eq("id", user!.id)
+    .maybeSingle();
+
+  redirect(profile?.onboarding_completed ? "/dashboard" : "/onboarding");
 }
 
 export async function signOut() {

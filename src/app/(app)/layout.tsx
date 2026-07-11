@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { ensureProfile } from "@/lib/supabase/ensure-profile";
 import { signOut } from "@/lib/actions/auth";
 import { Button } from "@/components/ui/button";
 
@@ -18,25 +19,10 @@ export default async function AppLayout({
     redirect("/login");
   }
 
-  let { data: profile } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", user.id)
-    .maybeSingle();
+  const profile = await ensureProfile(supabase, user);
 
-  // Normally handle_new_user() creates this row on signup. Self-heal here
-  // in case that trigger didn't fire, so a missing profile never blocks
-  // the rest of the app (e.g. the interview_sessions FK to profiles.id).
-  if (!profile) {
-    const { data: created } = await supabase
-      .from("profiles")
-      .insert({
-        id: user.id,
-        full_name: (user.user_metadata?.full_name as string | undefined) ?? null,
-      })
-      .select("is_admin")
-      .single();
-    profile = created;
+  if (!profile.onboarding_completed) {
+    redirect("/onboarding");
   }
 
   return (
@@ -49,7 +35,7 @@ export default async function AppLayout({
           <div className="flex items-center gap-4 text-sm">
             <Link href="/dashboard">Dashboard</Link>
             <Link href="/interview/new">New interview</Link>
-            {profile?.is_admin && (
+            {profile.is_admin && (
               <Link href="/question-bank">Question bank</Link>
             )}
             <form action={signOut}>
