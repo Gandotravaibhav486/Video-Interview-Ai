@@ -11,6 +11,31 @@ export interface CapturedAnswer {
 const MAX_FRAMES = 8;
 const FRAME_INTERVAL_MS = 4000;
 
+// getUserMedia throws different DOMException names for genuinely different
+// problems - surfacing the right one avoids telling a user to "grant
+// permission" when the real issue is no camera exists, or it's in use by
+// another app.
+function describeMediaError(err: unknown): string {
+  const name = err instanceof DOMException ? err.name : undefined;
+  switch (name) {
+    case "NotFoundError":
+    case "DevicesNotFoundError":
+      return "No camera or microphone was found on this device. Make sure one is connected and not disabled, then try again.";
+    case "NotAllowedError":
+    case "PermissionDeniedError":
+      return "Camera/microphone access was denied. Allow access for this site in your browser settings, then try again.";
+    case "NotReadableError":
+    case "TrackStartError":
+      return "Your camera or microphone is already in use by another app or browser tab. Close it and try again.";
+    case "OverconstrainedError":
+      return "Your camera doesn't support the required video settings. Try a different camera if you have one.";
+    default:
+      return err instanceof Error
+        ? err.message
+        : "Could not access your camera or microphone.";
+  }
+}
+
 // Owns the MediaStream/MediaRecorder for the recording flow. `getStream()` is
 // the extension seam a future `useFaceTracking` hook (MediaPipe FaceMesh)
 // would tap to compute eye-contact/posture signals from the same stream
@@ -37,6 +62,7 @@ export function useInterviewRecorder() {
   }, []);
 
   const setupCamera = useCallback(async () => {
+    setError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 640 }, height: { ideal: 480 } },
@@ -48,9 +74,7 @@ export function useInterviewRecorder() {
       }
       setIsReady(true);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not access camera/microphone"
-      );
+      setError(describeMediaError(err));
     }
   }, []);
 

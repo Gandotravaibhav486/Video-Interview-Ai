@@ -148,9 +148,17 @@ export function RecordingFlow({
           />
 
           {recorder.error && (
-            <p className="text-sm text-red-600">
-              {recorder.error}. Please allow camera/microphone access and reload.
-            </p>
+            <div className="flex items-center justify-between gap-4 rounded-md bg-red-50 p-3">
+              <p className="text-sm text-red-600">{recorder.error}</p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => void recorder.setupCamera()}
+              >
+                Try again
+              </Button>
+            </div>
           )}
           {uploadError && <p className="text-sm text-red-600">{uploadError}</p>}
 
