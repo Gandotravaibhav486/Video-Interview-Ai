@@ -14,9 +14,9 @@ import {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; notice?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, notice } = await searchParams;
 
   return (
     <Card>
@@ -27,6 +27,11 @@ export default async function LoginPage({
         </CardDescription>
       </CardHeader>
       <CardContent>
+        {notice && (
+          <p className="mb-4 rounded-md bg-green-50 p-3 text-sm text-green-700">
+            {notice}
+          </p>
+        )}
         <form action={signIn} className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="email">Email</Label>

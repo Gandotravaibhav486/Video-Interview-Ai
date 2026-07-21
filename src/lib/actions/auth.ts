@@ -26,7 +26,7 @@ export async function signUp(formData: FormData) {
   const fullName = String(formData.get("fullName") ?? "");
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
@@ -37,6 +37,19 @@ export async function signUp(formData: FormData) {
 
   if (error) {
     redirect(`/signup?error=${encodeURIComponent(error.message)}`);
+  }
+
+  // signUp succeeds even when email confirmation is required - Supabase
+  // just withholds the session until the link is clicked. That case has
+  // no session yet, so redirecting straight to /onboarding silently
+  // bounces to /login with zero explanation. Tell the student what
+  // actually happened instead.
+  if (!data.session) {
+    redirect(
+      `/login?notice=${encodeURIComponent(
+        "Account created — check your email to confirm it before logging in."
+      )}`
+    );
   }
 
   redirect("/onboarding");
