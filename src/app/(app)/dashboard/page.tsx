@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { startDomainInterview } from "@/lib/actions/domain-interview";
+import { LocalTimestamp } from "@/components/local-timestamp";
 import { ScoreTrendChart } from "@/components/dashboard/dashboard-trends";
 import { SubjectBreakdownChart } from "@/components/interview/results-charts";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +21,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { InterviewType } from "@/lib/supabase/types";
+
+const INTERVIEW_TYPE_LABELS: Record<InterviewType, string> = {
+  behavioral: "Behavioral",
+  technical: "Technical",
+  hr_mixed: "HR Mixed",
+  company_specific: "Company Specific",
+  resume_based: "Domain Interview",
+};
 
 export default async function DashboardPage({
   searchParams,
@@ -174,11 +184,13 @@ export default async function DashboardPage({
                       }
                       className="underline"
                     >
-                      {s.role}
+                      {s.interview_type === "resume_based"
+                        ? "Domain Interview"
+                        : s.role}
                     </Link>
                   </TableCell>
                   <TableCell>{s.company ?? "—"}</TableCell>
-                  <TableCell>{s.interview_type}</TableCell>
+                  <TableCell>{INTERVIEW_TYPE_LABELS[s.interview_type]}</TableCell>
                   <TableCell>
                     <Badge
                       variant={
@@ -194,7 +206,7 @@ export default async function DashboardPage({
                   </TableCell>
                   <TableCell>{s.overall_score ?? "—"}</TableCell>
                   <TableCell>
-                    {new Date(s.created_at).toLocaleDateString()}
+                    <LocalTimestamp iso={s.created_at} dateOnly />
                   </TableCell>
                 </TableRow>
               ))}

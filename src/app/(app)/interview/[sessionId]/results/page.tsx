@@ -4,6 +4,7 @@ import {
   DeliveryBreakdownChart,
   SubjectBreakdownChart,
 } from "@/components/interview/results-charts";
+import { LocalTimestamp } from "@/components/local-timestamp";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -72,12 +73,17 @@ export default async function ResultsPage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold">
-          {session.role}
+        <h1 className="text-2xl font-semibold flex items-center gap-3">
+          {session.interview_type === "resume_based"
+            ? "Domain Interview"
+            : session.role}
+          {session.interview_type === "resume_based" && (
+            <Badge variant="secondary">{session.role}</Badge>
+          )}
           {session.company ? ` — ${session.company}` : ""}
         </h1>
         <p className="text-muted-foreground">
-          {new Date(session.completed_at ?? session.created_at).toLocaleString()}
+          <LocalTimestamp iso={session.completed_at ?? session.created_at} />
         </p>
       </div>
 
