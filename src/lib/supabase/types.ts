@@ -7,7 +7,8 @@ export type InterviewType =
   | "behavioral"
   | "technical"
   | "hr_mixed"
-  | "company_specific";
+  | "company_specific"
+  | "resume_based";
 export type SessionStatus =
   | "draft"
   | "in_progress"
@@ -95,6 +96,7 @@ export type SessionQuestion = {
   session_id: string;
   question_bank_id: string | null;
   custom_question_id: string | null;
+  domain_question_id: string | null;
   order_index: number;
   question_text: string;
   reference_answer: string;
@@ -122,6 +124,18 @@ export type JobDescription = {
 export type CustomQuestion = {
   id: string;
   job_description_id: string;
+  subject: string;
+  question_text: string;
+  reference_answer: string;
+  question_type: QuestionType;
+  difficulty: Difficulty;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DomainQuestion = {
+  id: string;
+  user_id: string;
   subject: string;
   question_text: string;
   reference_answer: string;
@@ -225,6 +239,18 @@ export interface Database {
           question_type: QuestionType;
         };
         Update: Partial<CustomQuestion>;
+        Relationships: [];
+      };
+      domain_questions: {
+        Row: DomainQuestion;
+        Insert: Partial<DomainQuestion> & {
+          user_id: string;
+          subject: string;
+          question_text: string;
+          reference_answer: string;
+          question_type: QuestionType;
+        };
+        Update: Partial<DomainQuestion>;
         Relationships: [];
       };
     };

@@ -10,6 +10,7 @@ export interface PersistSessionQuestion {
   question_type: QuestionType;
   question_bank_id?: string | null;
   custom_question_id?: string | null;
+  domain_question_id?: string | null;
 }
 
 export interface PersistSessionParams {
@@ -52,6 +53,7 @@ export async function persistInterviewSession(
       session_id: session.id,
       question_bank_id: q.question_bank_id ?? null,
       custom_question_id: q.custom_question_id ?? null,
+      domain_question_id: q.domain_question_id ?? null,
       order_index: index,
       question_text: q.question_text,
       reference_answer: q.reference_answer,

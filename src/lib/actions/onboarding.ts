@@ -27,11 +27,19 @@ export async function uploadResume(formData: FormData) {
     redirect("/onboarding?error=" + encodeURIComponent("Please choose a PDF file"));
   }
 
+  const redirectTo = String(formData.get("redirect_to") ?? "/onboarding");
+
   const path = `${user!.id}/resume.pdf`;
   const { error: uploadError } = await supabase.storage
     .from("resumes")
     .upload(path, resumeFile!, { upsert: true, contentType: "application/pdf" });
   if (uploadError) throw new Error(uploadError.message);
+
+  // A new resume invalidates any previously generated Domain Interview
+  // question set unconditionally (not gated on the analysis below
+  // succeeding) - domain_questions must never silently correspond to a
+  // resume the student has since replaced.
+  await supabase.from("domain_questions").delete().eq("user_id", user!.id);
 
   const update: Partial<Profile> = {
     resume_url: path,
@@ -66,7 +74,10 @@ export async function uploadResume(formData: FormData) {
     .eq("id", user!.id);
   if (error) throw new Error(error.message);
 
-  redirect(parseFailed ? "/onboarding?warning=resume_parse_failed" : "/onboarding");
+  const destination = parseFailed
+    ? `${redirectTo}${redirectTo.includes("?") ? "&" : "?"}warning=resume_parse_failed`
+    : redirectTo;
+  redirect(destination);
 }
 
 // Step 1 (secondary): skip resume upload entirely, move straight to step 2

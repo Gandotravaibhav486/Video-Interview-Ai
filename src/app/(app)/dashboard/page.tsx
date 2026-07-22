@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { startDomainInterview } from "@/lib/actions/domain-interview";
 import { ScoreTrendChart } from "@/components/dashboard/dashboard-trends";
 import { SubjectBreakdownChart } from "@/components/interview/results-charts";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -20,11 +21,22 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("resume_url")
+    .eq("id", user!.id)
+    .single();
 
   const { data: allSessions } = await supabase
     .from("interview_sessions")
@@ -64,10 +76,28 @@ export default async function DashboardPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Your progress</h1>
-        <Link href="/interview/new" className={buttonVariants()}>
-          Start new interview
-        </Link>
+        <div className="flex items-center gap-3">
+          {profile?.resume_url ? (
+            <form action={startDomainInterview}>
+              <Button type="submit" variant="secondary">
+                Domain Interview
+              </Button>
+            </form>
+          ) : (
+            <Link
+              href="/resume/upload"
+              className={buttonVariants({ variant: "secondary" })}
+            >
+              Upload resume to unlock Domain Interview
+            </Link>
+          )}
+          <Link href="/interview/new" className={buttonVariants()}>
+            Start new interview
+          </Link>
+        </div>
       </div>
+
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
       {completed.length === 0 ? (
         <Card>
