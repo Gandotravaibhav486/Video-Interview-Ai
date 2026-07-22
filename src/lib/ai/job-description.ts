@@ -58,7 +58,7 @@ const ANALYZE_JD_TOOL = {
         minItems: 1,
         maxItems: 5,
         items: { type: "string" },
-        description: `Subset of the known subject vocabulary most relevant to this posting: ${KNOWN_SUBJECTS.join(", ")}`,
+        description: `Prefer this known vocabulary where it genuinely fits: ${KNOWN_SUBJECTS.join(", ")}. If the posting's actual subject matter isn't well covered by any of these (e.g. devops, cloud_infrastructure, machine_learning, mobile_development), invent a new lowercase snake_case subject tag instead of force-fitting it into an ill-fitting existing one.`,
       },
     },
     required: ["role", "company", "seniority", "required_skills", "subjects"],
@@ -80,14 +80,14 @@ export async function analyzeJobDescription(
 
 Known role vocabulary (prefer these for "role" where plausible, otherwise use free text): ${KNOWN_ROLES.join(", ")}.
 Known company vocabulary (prefer these for "company" where plausible, otherwise use free text): ${KNOWN_COMPANIES.join(", ")}.
-Known subject vocabulary (choose the most relevant subset for "subjects"): ${KNOWN_SUBJECTS.join(", ")}.
+Known subject vocabulary (prefer these for "subjects" where they genuinely fit): ${KNOWN_SUBJECTS.join(", ")}.
 
 Extract:
 1. "role": the job title/role being hired for.
 2. "company": the hiring company if named, else empty string.
 3. "seniority": the experience level implied by the posting.
 4. "required_skills": concrete technologies/languages/tools explicitly named (e.g. "Java", "React", "PostgreSQL") - be specific, not generic.
-5. "subjects": which of the known subjects this posting's interview would plausibly cover, based on its actual content.
+5. "subjects": which subjects this posting's interview would plausibly cover, based on its actual content. Prefer the known vocabulary above where it genuinely fits, but if the posting is about something the known vocabulary doesn't cover well (e.g. DevOps, cloud infrastructure, machine learning, mobile development, data engineering), invent a new lowercase snake_case subject tag for it instead of squeezing it into an ill-fitting existing one. Never force-fit a subject just because it's on the known list.
 
 Job description text:
 ${jdText.slice(0, 15000)}`,

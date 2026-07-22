@@ -43,7 +43,11 @@ const ANALYZE_RESUME_TOOL = {
               type: "string",
               enum: ["behavioral", "technical", "hr_mixed", "company_specific"],
             },
-            subjects: { type: "array", items: { type: "string" } },
+            subjects: {
+              type: "array",
+              items: { type: "string" },
+              description: `Prefer this known vocabulary where it genuinely fits: ${KNOWN_SUBJECTS.join(", ")}. If the resume's actual content isn't well covered by any of these (e.g. machine_learning, data_engineering, cloud_infrastructure, mobile_development), invent a new lowercase snake_case subject tag instead of force-fitting it into an ill-fitting existing one.`,
+            },
             rationale: { type: "string" },
           },
           required: ["role", "company", "interview_type", "subjects", "rationale"],
@@ -77,7 +81,7 @@ export async function analyzeResume(resumeText: string): Promise<ResumeAnalysis>
         role: "user",
         content: `Analyze this student's resume for placement-interview preparation.
 
-Known subject vocabulary (use these where plausible, for the "subjects" field): ${KNOWN_SUBJECTS.join(", ")}.
+Known subject vocabulary (prefer these for "subjects" where they genuinely fit): ${KNOWN_SUBJECTS.join(", ")}. If a suggestion's actual content isn't well covered by any of these (e.g. machine_learning, data_engineering, cloud_infrastructure, mobile_development), invent a new lowercase snake_case subject tag for it rather than squeezing it into an ill-fitting existing one.
 Known role vocabulary (prefer these for "role"/"target_role" where plausible, otherwise use free text): ${KNOWN_ROLES.join(", ")}.
 Known company vocabulary (prefer these for "company"/"target_companies" where plausible, otherwise use free text): ${KNOWN_COMPANIES.join(", ")}.
 
