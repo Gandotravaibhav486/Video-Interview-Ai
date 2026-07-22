@@ -51,8 +51,12 @@ export async function startDomainInterview() {
         throw new Error(downloadError?.message ?? "Could not read your resume file");
       }
 
+      const { CanvasFactory } = await import("pdf-parse/worker");
       const { PDFParse } = await import("pdf-parse");
-      const parser = new PDFParse({ data: await pdfBlob.arrayBuffer() });
+      const parser = new PDFParse({
+        data: await pdfBlob.arrayBuffer(),
+        CanvasFactory,
+      });
       const parsed = await parser.getText();
 
       analysis = await analyzeResumeForDomainInterview(parsed.text);

@@ -48,8 +48,12 @@ export async function uploadResume(formData: FormData) {
   let parseFailed = false;
 
   try {
+    const { CanvasFactory } = await import("pdf-parse/worker");
     const { PDFParse } = await import("pdf-parse");
-    const parser = new PDFParse({ data: await resumeFile!.arrayBuffer() });
+    const parser = new PDFParse({
+      data: await resumeFile!.arrayBuffer(),
+      CanvasFactory,
+    });
     const parsed = await parser.getText();
     const analysis = await analyzeResume(parsed.text);
 

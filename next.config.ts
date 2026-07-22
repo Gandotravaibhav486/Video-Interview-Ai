@@ -9,7 +9,11 @@ const nextConfig: NextConfig = {
   // doesn't exist once bundled by Next.js's server compiler ("Setting up
   // fake worker failed"). Keeping it external makes it load natively from
   // node_modules at runtime instead, where its worker resolution works.
-  serverExternalPackages: ["pdf-parse"],
+  // @napi-rs/canvas must be external too - it's pdf-parse's Node DOMMatrix
+  // polyfill (via CanvasFactory), and it ships a native binary that can't
+  // be bundled; without this it fails to load on Vercel with "DOMMatrix is
+  // not defined".
+  serverExternalPackages: ["pdf-parse", "@napi-rs/canvas"],
 };
 
 export default nextConfig;
