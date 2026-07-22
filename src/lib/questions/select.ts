@@ -30,6 +30,48 @@ export interface SelectQuestionsParams {
   subjects?: string[];
 }
 
+// Balances selection across whatever subjects are present in `items`,
+// picking round-robin so no single subject dominates a short list. Shared
+// by the curated-bank flow here and the custom-JD-question flow, which
+// both need "N items, spread across subjects" without needing the
+// role/company/type filtering that's specific to the curated bank.
+export function roundRobinBySubject<T extends { subject: string }>(
+  items: T[],
+  count: number
+): T[] {
+  const bySubject = new Map<string, T[]>();
+  for (const item of items) {
+    const list = bySubject.get(item.subject) ?? [];
+    list.push(item);
+    bySubject.set(item.subject, list);
+  }
+  for (const list of bySubject.values()) {
+    list.sort(() => Math.random() - 0.5);
+  }
+
+  const eligibleSubjects = Array.from(bySubject.keys()).sort(
+    () => Math.random() - 0.5
+  );
+  const selected: T[] = [];
+
+  let round = 0;
+  while (selected.length < count && eligibleSubjects.length > 0) {
+    let pickedAny = false;
+    for (const subject of eligibleSubjects) {
+      if (selected.length >= count) break;
+      const list = bySubject.get(subject)!;
+      if (round < list.length) {
+        selected.push(list[round]);
+        pickedAny = true;
+      }
+    }
+    if (!pickedAny) break;
+    round += 1;
+  }
+
+  return selected;
+}
+
 export function selectSessionQuestions({
   bank,
   role,
@@ -54,35 +96,5 @@ export function selectSessionQuestions({
 
   const pool = eligible.length > 0 ? eligible : bank;
 
-  const bySubject = new Map<string, QuestionBankEntry[]>();
-  for (const q of pool) {
-    const list = bySubject.get(q.subject) ?? [];
-    list.push(q);
-    bySubject.set(q.subject, list);
-  }
-  for (const list of bySubject.values()) {
-    list.sort(() => Math.random() - 0.5);
-  }
-
-  const eligibleSubjects = Array.from(bySubject.keys()).sort(
-    () => Math.random() - 0.5
-  );
-  const selected: QuestionBankEntry[] = [];
-
-  let round = 0;
-  while (selected.length < questionCount && eligibleSubjects.length > 0) {
-    let pickedAny = false;
-    for (const subject of eligibleSubjects) {
-      if (selected.length >= questionCount) break;
-      const list = bySubject.get(subject)!;
-      if (round < list.length) {
-        selected.push(list[round]);
-        pickedAny = true;
-      }
-    }
-    if (!pickedAny) break;
-    round += 1;
-  }
-
-  return selected;
+  return roundRobinBySubject(pool, questionCount);
 }

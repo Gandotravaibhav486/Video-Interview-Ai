@@ -3,9 +3,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { selectSessionQuestions } from "@/lib/questions/select";
+import { persistInterviewSession } from "@/lib/sessions/persist-session";
 import type { InterviewType } from "@/lib/supabase/types";
-
-const DEFAULT_TIME_LIMIT_SECONDS = 120;
 
 function parseList(value: FormDataEntryValue | null): string[] {
   return String(value ?? "")
@@ -52,42 +51,19 @@ export async function createInterviewSession(formData: FormData) {
     );
   }
 
-  const { data: session, error: sessionError } = await supabase
-    .from("interview_sessions")
-    .insert({
-      user_id: user!.id,
-      role,
-      company,
-      interview_type: interviewType,
-      status: "in_progress",
-      question_count: selected.length,
-      started_at: new Date().toISOString(),
-    })
-    .select("id")
-    .single();
+  const sessionId = await persistInterviewSession(supabase, {
+    userId: user!.id,
+    role,
+    company,
+    interviewType,
+    questions: selected.map((q) => ({
+      question_text: q.question_text,
+      reference_answer: q.reference_answer,
+      subject: q.subject,
+      question_type: q.question_type,
+      question_bank_id: q.id,
+    })),
+  });
 
-  if (sessionError || !session) {
-    throw new Error(sessionError?.message ?? "Failed to create session");
-  }
-
-  const { error: questionsError } = await supabase
-    .from("session_questions")
-    .insert(
-      selected.map((q, index) => ({
-        session_id: session.id,
-        question_bank_id: q.id,
-        order_index: index,
-        question_text: q.question_text,
-        reference_answer: q.reference_answer,
-        subject: q.subject,
-        question_type: q.question_type,
-        time_limit_seconds: DEFAULT_TIME_LIMIT_SECONDS,
-      }))
-    );
-
-  if (questionsError) {
-    throw new Error(questionsError.message);
-  }
-
-  redirect(`/interview/${session.id}/record`);
+  redirect(`/interview/${sessionId}/record`);
 }

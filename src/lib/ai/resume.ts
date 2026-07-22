@@ -14,9 +14,9 @@ export interface ResumeAnalysis {
   profile_defaults: ProfileDefaults;
 }
 
-const KNOWN_SUBJECTS = ["dsa", "oops", "dbms", "hr", "communication", "system_design"];
-const KNOWN_ROLES = ["sde", "software_engineer", "business_analyst"];
-const KNOWN_COMPANIES = ["tcs", "infosys", "wipro", "accenture", "amazon", "google"];
+export const KNOWN_SUBJECTS = ["dsa", "oops", "dbms", "hr", "communication", "system_design"];
+export const KNOWN_ROLES = ["sde", "software_engineer", "business_analyst"];
+export const KNOWN_COMPANIES = ["tcs", "infosys", "wipro", "accenture", "amazon", "google"];
 
 const ANALYZE_RESUME_TOOL = {
   name: "submit_resume_analysis",

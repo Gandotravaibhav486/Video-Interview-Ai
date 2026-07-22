@@ -21,6 +21,7 @@ export type QuestionType =
   | "resume_followup";
 export type Difficulty = "easy" | "medium" | "hard";
 export type ProcessingStatus = "pending" | "processing" | "complete" | "failed";
+export type JobDescriptionStatus = "ready" | "failed";
 
 export type ScoreParameter = {
   score: number;
@@ -93,6 +94,7 @@ export type SessionQuestion = {
   id: string;
   session_id: string;
   question_bank_id: string | null;
+  custom_question_id: string | null;
   order_index: number;
   question_text: string;
   reference_answer: string;
@@ -101,6 +103,32 @@ export type SessionQuestion = {
   time_limit_seconds: number;
   expected_focus_areas: string[];
   created_at: string;
+}
+
+export type JobDescription = {
+  id: string;
+  user_id: string;
+  raw_text: string;
+  role: string;
+  company: string | null;
+  seniority: string | null;
+  required_skills: string[];
+  subjects: string[];
+  status: JobDescriptionStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export type CustomQuestion = {
+  id: string;
+  job_description_id: string;
+  subject: string;
+  question_text: string;
+  reference_answer: string;
+  question_type: QuestionType;
+  difficulty: Difficulty;
+  created_at: string;
+  updated_at: string;
 }
 
 export type Answer = {
@@ -179,6 +207,24 @@ export interface Database {
         Row: Answer;
         Insert: Partial<Answer> & { question_id: string };
         Update: Partial<Answer>;
+        Relationships: [];
+      };
+      job_descriptions: {
+        Row: JobDescription;
+        Insert: Partial<JobDescription> & { user_id: string; raw_text: string; role: string };
+        Update: Partial<JobDescription>;
+        Relationships: [];
+      };
+      custom_questions: {
+        Row: CustomQuestion;
+        Insert: Partial<CustomQuestion> & {
+          job_description_id: string;
+          subject: string;
+          question_text: string;
+          reference_answer: string;
+          question_type: QuestionType;
+        };
+        Update: Partial<CustomQuestion>;
         Relationships: [];
       };
     };
