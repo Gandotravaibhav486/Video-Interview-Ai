@@ -22,10 +22,19 @@ export function RecordingFlow({
   const router = useRouter();
   const recorder = useInterviewRecorder();
   const [index, setIndex] = useState(0);
-  const [phase, setPhase] = useState<"idle" | "recording" | "uploading">("idle");
+  const [phase, setPhase] = useState<"idle" | "recording" | "review" | "uploading">(
+    "idle"
+  );
+  const [attempt, setAttempt] = useState(1);
+  const [capturedDuration, setCapturedDuration] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const capturedRef = useRef<{
+    videoBlob: Blob;
+    frameBlobs: Blob[];
+    durationSeconds: number;
+  } | null>(null);
 
   const question = questions[index];
   const isLast = index === questions.length - 1;
@@ -65,7 +74,7 @@ export function RecordingFlow({
       setTimeLeft((t) => {
         if (t <= 1) {
           if (timerRef.current) clearInterval(timerRef.current);
-          void finishAnswer();
+          void stopAndReview();
           return 0;
         }
         return t - 1;
@@ -73,13 +82,39 @@ export function RecordingFlow({
     }, 1000);
   }
 
-  async function finishAnswer() {
+  // Stops the recorder and holds the result for review - nothing is
+  // uploaded or submitted yet, so a discarded attempt (via retakeAnswer)
+  // never costs a Storage upload or an AI scoring call.
+  async function stopAndReview() {
     if (timerRef.current) clearInterval(timerRef.current);
+    try {
+      const captured = await recorder.stopRecording();
+      capturedRef.current = captured;
+      setCapturedDuration(captured.durationSeconds);
+      setPhase("review");
+    } catch (err) {
+      setUploadError(
+        err instanceof Error ? err.message : "Failed to stop recording"
+      );
+      setPhase("idle");
+    }
+  }
+
+  function retakeAnswer() {
+    capturedRef.current = null;
+    setCapturedDuration(null);
+    setAttempt((a) => a + 1);
+    setPhase("idle");
+  }
+
+  async function submitCapturedAnswer() {
+    const captured = capturedRef.current;
+    if (!captured) return;
     setPhase("uploading");
     setUploadError(null);
 
     try {
-      const { videoBlob, frameBlobs, durationSeconds } = await recorder.stopRecording();
+      const { videoBlob, frameBlobs, durationSeconds } = captured;
       const supabase = createClient();
 
       const videoPath = `${userId}/${sessionId}/${question.id}.webm`;
@@ -107,19 +142,25 @@ export function RecordingFlow({
         framePaths,
       });
 
+      capturedRef.current = null;
+      setCapturedDuration(null);
+
       if (isLast) {
         await markSessionProcessing(sessionId);
         recorder.release();
         router.push(`/interview/${sessionId}/processing`);
       } else {
         setIndex((i) => i + 1);
+        setAttempt(1);
         setPhase("idle");
       }
     } catch (err) {
       setUploadError(
         err instanceof Error ? err.message : "Failed to submit your answer"
       );
-      setPhase("idle");
+      // Keep the captured attempt and land back on review rather than idle -
+      // a failed upload shouldn't cost them the recording they already have.
+      setPhase("review");
     }
   }
 
@@ -167,6 +208,10 @@ export function RecordingFlow({
               <span className="text-sm font-medium">
                 Recording — {timeLeft}s left
               </span>
+            ) : phase === "review" ? (
+              <span className="text-sm text-muted-foreground">
+                Attempt {attempt} recorded ({Math.round(capturedDuration ?? 0)}s)
+              </span>
             ) : (
               <span className="text-sm text-muted-foreground">
                 Time limit: {question.time_limit_seconds}s
@@ -179,9 +224,21 @@ export function RecordingFlow({
               </Button>
             )}
             {phase === "recording" && (
-              <Button onClick={() => void finishAnswer()} variant="outline">
-                Submit answer
+              <Button onClick={() => void stopAndReview()} variant="outline">
+                Stop recording
               </Button>
+            )}
+            {phase === "review" && (
+              <div className="flex items-center gap-3">
+                {attempt < 2 && (
+                  <Button variant="outline" onClick={retakeAnswer}>
+                    Retake
+                  </Button>
+                )}
+                <Button onClick={() => void submitCapturedAnswer()}>
+                  Submit answer
+                </Button>
+              </div>
             )}
             {phase === "uploading" && <Button disabled>Uploading…</Button>}
           </div>
