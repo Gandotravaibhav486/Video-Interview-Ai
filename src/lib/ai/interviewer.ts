@@ -188,10 +188,21 @@ export async function runInterviewTurn({
   company,
 }: RunInterviewTurnParams): Promise<InterviewTurnResult> {
   const current = agenda[Math.min(state.questionIndex, agenda.length - 1)];
+  const isLastQuestion = state.questionIndex >= agenda.length - 1;
+  const next = isLastQuestion ? null : agenda[state.questionIndex + 1];
 
   // Volatile per-turn context. This goes in a mid-conversation system message
   // rather than the top-level system prompt precisely so the cached prefix
   // above survives untouched every turn.
+  //
+  // Critically, this must name the NEXT question's exact text, not just the
+  // current one. Without it, a "next_question" decision has nothing to draw
+  // on but improvisation - the model invents its own question, which then
+  // gets tagged (correctly, by index) to a planned slot whose real bank text
+  // and reference answer are about something else entirely. Confirmed live:
+  // this produced a full session where every question from the second one
+  // onward was one slot behind, and scoreAnswer's own feedback was flagging
+  // "mismatched reference answer" on nearly every card.
   const stateBriefing = [
     `Interview context: ${role}${company ? ` at ${company}` : ""}.`,
     `You are on planned question ${state.questionIndex + 1} of ${agenda.length} (subject: ${current.subject}).`,
@@ -201,9 +212,9 @@ export async function runInterviewTurn({
     state.followUpsUsed >= 2
       ? "You are out of follow-ups here; choose next_question or end_interview."
       : "",
-    state.questionIndex >= agenda.length - 1
+    isLastQuestion
       ? "This is the final planned question — end_interview is available once it is adequately covered."
-      : "There are further questions on the agenda after this one.",
+      : `If you choose decision "next_question", your utterance must move into and literally ask this exact next question (a brief natural transition is fine, but the substantive question must match): ${next!.questionText}`,
     transcript.length === 0
       ? "This is the opening turn: greet the candidate briefly, explain you'll ask a few questions, and ask the current question. Use decision \"next_question\" and leave coverage_notes empty."
       : "",
