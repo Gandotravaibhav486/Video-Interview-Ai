@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { startDomainInterview } from "@/lib/actions/domain-interview";
+import { startLiveInterview } from "@/lib/actions/live-interview";
 import { LocalTimestamp } from "@/components/local-timestamp";
 import { ScoreTrendChart } from "@/components/dashboard/dashboard-trends";
 import { SubjectBreakdownChart } from "@/components/interview/results-charts";
@@ -44,7 +45,7 @@ export default async function DashboardPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("resume_url")
+    .select("resume_url, target_role")
     .eq("id", user!.id)
     .single();
 
@@ -101,6 +102,13 @@ export default async function DashboardPage({
               Upload resume to unlock Domain Interview
             </Link>
           )}
+          <form action={startLiveInterview}>
+            <input type="hidden" name="role" value={profile?.target_role || "sde"} />
+            <input type="hidden" name="question_count" value="6" />
+            <Button type="submit" variant="secondary">
+              Live Interview
+            </Button>
+          </form>
           <Link href="/interview/new" className={buttonVariants()}>
             Start new interview
           </Link>

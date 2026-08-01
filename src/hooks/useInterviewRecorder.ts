@@ -8,8 +8,22 @@ export interface CapturedAnswer {
   durationSeconds: number;
 }
 
+export interface CapturedTurn {
+  audioBlob: Blob;
+  frameBlobs: Blob[];
+  durationSeconds: number;
+}
+
 const MAX_FRAMES = 8;
 const FRAME_INTERVAL_MS = 4000;
+
+// Live mode samples fewer frames per turn than a batch answer, since a turn
+// is typically one exchange (seconds to a couple of minutes) rather than a
+// full 120s answer, and assembleQuestionMedia() already downsamples across a
+// question's turns down to 8 total - capturing more here than that ceiling
+// needs would just mean discarding frames later instead of not taking them.
+const LIVE_MAX_FRAMES_PER_TURN = 6;
+const LIVE_FRAME_INTERVAL_MS = 3000;
 
 // getUserMedia throws different DOMException names for genuinely different
 // problems - surfacing the right one avoids telling a user to "grant
@@ -50,6 +64,17 @@ export function useInterviewRecorder() {
   const frameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
 
+  // Fully separate state for the live per-turn recorder, rather than
+  // reusing the batch refs above - the two modes never run in the same
+  // session, but keeping them independent means nothing here can regress
+  // the existing batch recording path.
+  const turnRecorderRef = useRef<MediaRecorder | null>(null);
+  const turnChunksRef = useRef<Blob[]>([]);
+  const turnFrameCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const turnFrameBlobsRef = useRef<Blob[]>([]);
+  const turnFrameIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const turnStartTimeRef = useRef<number>(0);
+
   const [isReady, setIsReady] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,7 +91,10 @@ export function useInterviewRecorder() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 640 }, height: { ideal: 480 } },
-        audio: true,
+        // echoCancellation/noiseSuppression matter most once live mode plays
+        // agent audio back through speakers (a later phase - v1 is text on
+        // screen) into the same mic; harmless for batch mode either way.
+        audio: { echoCancellation: true, noiseSuppression: true },
       });
       streamRef.current = stream;
       if (videoElRef.current) {
@@ -97,6 +125,85 @@ export function useInterviewRecorder() {
       "image/jpeg",
       0.7
     );
+  }, []);
+
+  const captureTurnFrame = useCallback(() => {
+    const video = videoElRef.current;
+    if (!video || video.videoWidth === 0) return;
+    const canvas = turnFrameCanvasRef.current ?? document.createElement("canvas");
+    turnFrameCanvasRef.current = canvas;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(
+      (blob) => {
+        if (blob && turnFrameBlobsRef.current.length < LIVE_MAX_FRAMES_PER_TURN) {
+          turnFrameBlobsRef.current.push(blob);
+        }
+      },
+      "image/jpeg",
+      0.7
+    );
+  }, []);
+
+  // Audio-only per-utterance recorder for live mode. A separate MediaStream
+  // wrapping just the audio track(s) - not a clone of the hardware capture,
+  // just an audio-only view of the same stream setupCamera already opened -
+  // so this can run every turn without touching the shared video pipeline.
+  // Recording video here would cost ~9x the bytes on the turn-latency-
+  // critical upload path (see assemble-question-media.ts) for a track
+  // scoreAnswer() never looks at: frames come from captureTurnFrame() above,
+  // drawn straight off the live <video> element.
+  const startAudioTurn = useCallback(() => {
+    if (!streamRef.current) return;
+    turnChunksRef.current = [];
+    turnFrameBlobsRef.current = [];
+    turnStartTimeRef.current = Date.now();
+
+    const audioStream = new MediaStream(streamRef.current.getAudioTracks());
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : "audio/webm";
+    const recorder = new MediaRecorder(audioStream, {
+      mimeType,
+      audioBitsPerSecond: 48_000,
+    });
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) turnChunksRef.current.push(e.data);
+    };
+    recorder.start();
+    turnRecorderRef.current = recorder;
+
+    captureTurnFrame();
+    turnFrameIntervalRef.current = setInterval(captureTurnFrame, LIVE_FRAME_INTERVAL_MS);
+  }, [captureTurnFrame]);
+
+  const stopAudioTurn = useCallback((): Promise<CapturedTurn> => {
+    return new Promise((resolve, reject) => {
+      const recorder = turnRecorderRef.current;
+      if (!recorder || recorder.state === "inactive") {
+        reject(new Error("Not recording a turn"));
+        return;
+      }
+      if (turnFrameIntervalRef.current) {
+        clearInterval(turnFrameIntervalRef.current);
+        turnFrameIntervalRef.current = null;
+      }
+      recorder.onstop = () => {
+        const audioBlob = new Blob(turnChunksRef.current, {
+          type: "audio/webm",
+        });
+        const durationSeconds = (Date.now() - turnStartTimeRef.current) / 1000;
+        resolve({
+          audioBlob,
+          frameBlobs: turnFrameBlobsRef.current,
+          durationSeconds,
+        });
+      };
+      recorder.stop();
+    });
   }, []);
 
   const startRecording = useCallback(() => {
@@ -163,6 +270,8 @@ export function useInterviewRecorder() {
     setupCamera,
     startRecording,
     stopRecording,
+    startAudioTurn,
+    stopAudioTurn,
     release,
     isReady,
     isRecording,

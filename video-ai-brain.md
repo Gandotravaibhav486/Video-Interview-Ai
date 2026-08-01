@@ -67,6 +67,13 @@ Supabase's default/shared email provider is hard-capped at **2 emails/hour proje
 ### `Ideation` — Verified sending domain for Resend
 Currently using Resend's sandbox sender (`onboarding@resend.dev`), which can only deliver to the Resend account's own registered email — fine for personal visit notifications right now, but would need a verified `mockintervew.com` sending domain (a few DNS records) to send to arbitrary recipients or to look legitimate enough to avoid spam filters if this ever needs to email actual users.
 
+### `Ideation` — Tune how eagerly the live interviewer probes strong answers
+While building the live conversational interviewer, testing showed the agent will spend a follow-up on an answer that was already thorough (named the bottleneck, the profiler, the fix, and a quantified before/after) — its stated rationale was "a deeper layer worth one probe." This is intentional per the current system prompt (`src/lib/ai/interviewer.ts`, `INTERVIEWER_SYSTEM`, "When to probe vs. move on" section), which explicitly lists *"the answer was strong and there is a genuinely more interesting layer underneath"* as a valid probe trigger — not a bug. It's bounded by the state machine's 2-follow-ups-per-question cap either way.
+
+**Decided to leave as-is for now** (depth-over-breadth reads as more realistic, and it's bounded), but flagged as worth revisiting once real users hit it, since it does mean sessions run longer (up to 3 candidate turns per question instead of 1) and cover fewer distinct questions per session.
+
+**Exact change if revisited:** delete or soften the bullet *"The answer was strong and there is a genuinely more interesting layer underneath."* under "When to probe vs. move on" in `INTERVIEWER_SYSTEM` (`src/lib/ai/interviewer.ts`) — that one line is what licenses probing already-strong answers. Nothing else needs to change; the "Move on when" bullets ("the answer covered the substance, even if imperfectly... adequate is a pass") already bias the other way and would dominate once that line is gone.
+
 ### `Ideation` (pre-existing, unimplemented, noted in original MVP plan) — CV/integrity signals
 Schema has inert `client_signals`/`integrity_flags` JSONB columns and extension seams (`useInterviewRecorder.getStream()`, visibility/blur listeners) for future in-browser computer vision (eye contact/posture/expression tracking) and cheating detection (tab-switch, multiple faces, gaze-away). Deliberately built as seams, not implemented — scoped as a later addition from the very first MVP plan.
 

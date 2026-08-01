@@ -24,6 +24,12 @@ export type Difficulty = "easy" | "medium" | "hard";
 export type ProcessingStatus = "pending" | "processing" | "complete" | "failed";
 export type JobDescriptionStatus = "ready" | "failed";
 
+// Delivery mode, orthogonal to interview_type - live composes with every
+// existing content source (curated bank, job description, resume).
+export type SessionMode = "batch" | "live";
+export type TurnSpeaker = "agent" | "candidate";
+export type TurnDecision = "follow_up" | "next_question" | "end_interview";
+
 export type ScoreParameter = {
   score: number;
   weight: number;
@@ -79,6 +85,7 @@ export type InterviewSession = {
   role: string;
   company: string | null;
   interview_type: InterviewType;
+  mode: SessionMode;
   status: SessionStatus;
   question_count: number;
   overall_score: number | null;
@@ -104,6 +111,32 @@ export type SessionQuestion = {
   question_type: QuestionType;
   time_limit_seconds: number;
   expected_focus_areas: string[];
+  created_at: string;
+}
+
+// One exchange in a live interview. Follow-up questions are turns, not
+// session_questions rows - which is why this table has no reference_answer
+// and doesn't collide with that column's NOT NULL constraint.
+export type LiveTurn = {
+  id: string;
+  session_id: string;
+  // Null for intro/closing turns, which belong to no single planned question.
+  session_question_id: string | null;
+  turn_index: number;
+  speaker: TurnSpeaker;
+  text: string;
+  // Candidate turns only. Audio, not video - frames come from the canvas loop
+  // and scoreAnswer() has no video input.
+  audio_storage_path: string | null;
+  audio_duration_seconds: number | null;
+  frames_extracted: string[];
+  // Agent turns only.
+  decision: TurnDecision | null;
+  decision_rationale: string | null;
+  coverage_notes: string | null;
+  // Inert seam for a future session-long video track's playback ranges.
+  started_at_ms: number | null;
+  ended_at_ms: number | null;
   created_at: string;
 }
 
@@ -227,6 +260,17 @@ export interface Database {
         Row: JobDescription;
         Insert: Partial<JobDescription> & { user_id: string; raw_text: string; role: string };
         Update: Partial<JobDescription>;
+        Relationships: [];
+      };
+      live_turns: {
+        Row: LiveTurn;
+        Insert: Partial<LiveTurn> & {
+          session_id: string;
+          turn_index: number;
+          speaker: TurnSpeaker;
+          text: string;
+        };
+        Update: Partial<LiveTurn>;
         Relationships: [];
       };
       custom_questions: {

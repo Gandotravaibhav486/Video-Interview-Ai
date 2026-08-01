@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database, InterviewType, QuestionType } from "@/lib/supabase/types";
+import type {
+  Database,
+  InterviewType,
+  QuestionType,
+  SessionMode,
+} from "@/lib/supabase/types";
 
 const DEFAULT_TIME_LIMIT_SECONDS = 120;
 
@@ -19,16 +24,19 @@ export interface PersistSessionParams {
   company: string | null;
   interviewType: InterviewType;
   questions: PersistSessionQuestion[];
+  /** Defaults to "batch" so every existing caller needs zero changes. */
+  mode?: SessionMode;
 }
 
-// Shared by both the curated-question-bank flow (createInterviewSession)
-// and the custom-JD-question flow (startInterviewFromJobDescription) - the
-// interview_sessions + session_questions insert shape is identical either
-// way, only the question source differs. Callers still handle their own
+// Shared by the curated-question-bank flow (createInterviewSession), the
+// custom-JD-question flow (startInterviewFromJobDescription), and the live
+// conversational flow (startLiveInterview) - the interview_sessions +
+// session_questions insert shape is identical across all three, only the
+// question source and mode differ. Callers still handle their own
 // redirect() after this resolves.
 export async function persistInterviewSession(
   supabase: SupabaseClient<Database>,
-  { userId, role, company, interviewType, questions }: PersistSessionParams
+  { userId, role, company, interviewType, questions, mode = "batch" }: PersistSessionParams
 ): Promise<string> {
   const { data: session, error: sessionError } = await supabase
     .from("interview_sessions")
@@ -37,6 +45,7 @@ export async function persistInterviewSession(
       role,
       company,
       interview_type: interviewType,
+      mode,
       status: "in_progress",
       question_count: questions.length,
       started_at: new Date().toISOString(),
