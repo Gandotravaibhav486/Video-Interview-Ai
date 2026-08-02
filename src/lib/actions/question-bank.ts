@@ -17,6 +17,9 @@ export async function upsertQuestionBankEntry(formData: FormData) {
   const id = formData.get("id");
   const payload = {
     subject: String(formData.get("subject") ?? "").trim(),
+    // Same normalization the generator applies, so hand-written and generated
+    // rows stay matchable against profiles.resume_skills.
+    skills: parseTags(formData.get("skills")).map((s) => s.replace(/\s+/g, "_")),
     role_tags: parseTags(formData.get("role_tags")),
     company_tags: parseTags(formData.get("company_tags")),
     question_text: String(formData.get("question_text") ?? "").trim(),

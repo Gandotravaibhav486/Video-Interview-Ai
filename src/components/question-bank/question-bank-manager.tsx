@@ -37,6 +37,7 @@ import {
 const EMPTY_FORM = {
   id: "",
   subject: "",
+  skills: "",
   role_tags: "",
   company_tags: "",
   question_text: "",
@@ -57,6 +58,7 @@ export function QuestionBankManager({
     setForm({
       id: q.id,
       subject: q.subject,
+      skills: q.skills.join(", "),
       role_tags: q.role_tags.join(", "),
       company_tags: q.company_tags.join(", "),
       question_text: q.question_text,
@@ -149,6 +151,21 @@ export function QuestionBankManager({
             </div>
 
             <div className="flex flex-col gap-2">
+              <Label htmlFor="skills">Skills tested (comma separated)</Label>
+              <Input
+                id="skills"
+                name="skills"
+                placeholder="sql, joins, normalization"
+                defaultValue={form.skills}
+              />
+              <p className="text-xs text-muted-foreground">
+                Finer-grained than subject. Matched against skills extracted
+                from candidate resumes, so name them as they&apos;d appear on a
+                resume.
+              </p>
+            </div>
+
+            <div className="flex flex-col gap-2">
               <Label htmlFor="question_text">Question</Label>
               <Textarea
                 id="question_text"
@@ -224,7 +241,16 @@ export function QuestionBankManager({
               {questions.map((q) => (
                 <TableRow key={q.id}>
                   <TableCell>
-                    <Badge variant="secondary">{q.subject}</Badge>
+                    <div className="flex flex-col gap-1">
+                      <Badge variant="secondary" className="w-fit">
+                        {q.subject}
+                      </Badge>
+                      {q.skills.length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          {q.skills.join(", ")}
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="max-w-sm truncate">
                     {q.question_text}

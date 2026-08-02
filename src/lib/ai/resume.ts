@@ -25,8 +25,30 @@ export const KNOWN_SUBJECTS = [
   "communication",
   "system_design",
 ];
-export const KNOWN_ROLES = ["sde", "software_engineer", "business_analyst"];
-export const KNOWN_COMPANIES = ["tcs", "infosys", "wipro", "accenture", "amazon", "google"];
+export const KNOWN_ROLES = [
+  "sde",
+  "software_engineer",
+  "business_analyst",
+  "data_analyst",
+  "qa_engineer",
+  "devops_engineer",
+  "product_manager",
+];
+export const KNOWN_COMPANIES = [
+  "tcs",
+  "infosys",
+  "wipro",
+  "accenture",
+  "cognizant",
+  "capgemini",
+  "hcl",
+  "ibm",
+  "deloitte",
+  "amazon",
+  "google",
+  "microsoft",
+  "flipkart",
+];
 
 const ANALYZE_RESUME_TOOL = {
   name: "submit_resume_analysis",

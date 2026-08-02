@@ -64,9 +64,19 @@ export type Profile = {
   updated_at: string;
 }
 
+export type QuestionSource = "manual" | "ai_generated";
+export type VerificationVerdict = "grounded" | "plausible" | "rejected";
+
 export type QuestionBankEntry = {
   id: string;
   subject: string;
+  /**
+   * Fine-grained "what is actually tested" tags beneath `subject` (e.g.
+   * {sql, joins} under dbms). Matched against profiles.resume_skills so
+   * Domain Interviews can reuse curated questions with human-reviewed
+   * reference answers instead of always generating fresh ones.
+   */
+  skills: string[];
   role_tags: string[];
   company_tags: string[];
   question_text: string;
@@ -74,6 +84,10 @@ export type QuestionBankEntry = {
   difficulty: Difficulty;
   question_type: QuestionType;
   is_active: boolean;
+  source: QuestionSource;
+  grounding_notes: string | null;
+  verification_verdict: VerificationVerdict | null;
+  verified_at: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
