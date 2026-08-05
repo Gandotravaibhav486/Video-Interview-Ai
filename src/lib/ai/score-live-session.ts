@@ -31,8 +31,24 @@ export async function scoreLiveSession(sessionId: string): Promise<void> {
   // Partial-failure tolerant, matching maybeFinalizeSession()'s existing
   // stance: one bad question (a missed turn, a transcription gap) should not
   // sink the rest of a real interview the student sat through.
+  //
+  // Also idempotent per question, which is what makes this function safe to
+  // call again for a session that's already partway done - the dev server
+  // crashing mid-loop (observed for real: killed between question 0
+  // finishing and question 1 completing, leaving question 1 frozen on
+  // "processing" forever with nothing to ever call this function again)
+  // previously had no recovery path at all. Re-running from scratch would
+  // have re-spent an API call re-scoring question 0 for nothing; skipping
+  // already-complete questions makes a retry cheap and safe.
   for (const question of questions) {
     try {
+      const { data: existing } = await supabase
+        .from("answers")
+        .select("feedback_status")
+        .eq("question_id", question.id)
+        .maybeSingle();
+      if (existing?.feedback_status === "complete") continue;
+
       await supabase.from("answers").upsert(
         {
           question_id: question.id,

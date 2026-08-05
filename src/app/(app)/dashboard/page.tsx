@@ -1,12 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { startDomainInterview } from "@/lib/actions/domain-interview";
-import { startLiveInterview } from "@/lib/actions/live-interview";
 import { LocalTimestamp } from "@/components/local-timestamp";
 import { ScoreTrendChart } from "@/components/dashboard/dashboard-trends";
 import { SubjectBreakdownChart } from "@/components/interview/results-charts";
 import { Badge } from "@/components/ui/badge";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -42,12 +40,6 @@ export default async function DashboardPage({
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("resume_url, target_role")
-    .eq("id", user!.id)
-    .single();
 
   const { data: allSessions } = await supabase
     .from("interview_sessions")
@@ -87,32 +79,9 @@ export default async function DashboardPage({
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Your progress</h1>
-        <div className="flex items-center gap-3">
-          {profile?.resume_url ? (
-            <form action={startDomainInterview}>
-              <Button type="submit" variant="secondary">
-                Domain Interview
-              </Button>
-            </form>
-          ) : (
-            <Link
-              href="/resume/upload"
-              className={buttonVariants({ variant: "secondary" })}
-            >
-              Upload resume to unlock Domain Interview
-            </Link>
-          )}
-          <form action={startLiveInterview}>
-            <input type="hidden" name="role" value={profile?.target_role || "sde"} />
-            <input type="hidden" name="question_count" value="6" />
-            <Button type="submit" variant="secondary">
-              Live Interview
-            </Button>
-          </form>
-          <Link href="/interview/new" className={buttonVariants()}>
-            Start new interview
-          </Link>
-        </div>
+        <Link href="/interview/new" className={buttonVariants()}>
+          Start new interview
+        </Link>
       </div>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
@@ -181,43 +150,54 @@ export default async function DashboardPage({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sessions.map((s) => (
-                <TableRow key={s.id}>
-                  <TableCell>
-                    <Link
-                      href={
-                        s.status === "completed" || s.status === "failed"
-                          ? `/interview/${s.id}/results`
-                          : `/interview/${s.id}/record`
-                      }
-                      className="underline"
-                    >
-                      {s.interview_type === "resume_based"
-                        ? "Domain Interview"
-                        : s.role}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{s.company ?? "—"}</TableCell>
-                  <TableCell>{INTERVIEW_TYPE_LABELS[s.interview_type]}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        s.status === "completed"
-                          ? "default"
-                          : s.status === "failed"
-                            ? "destructive"
-                            : "outline"
-                      }
-                    >
-                      {s.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{s.overall_score ?? "—"}</TableCell>
-                  <TableCell>
-                    <LocalTimestamp iso={s.created_at} dateOnly />
-                  </TableCell>
-                </TableRow>
-              ))}
+              {sessions.map((s) => {
+                // No record-flow route exists any more, so a lingering
+                // mode="batch" row (old data, from before this app was
+                // live-only) that never finished has nowhere left to link
+                // to - render it as plain text rather than a dead link.
+                const href =
+                  s.status === "completed" || s.status === "failed"
+                    ? `/interview/${s.id}/results`
+                    : s.status === "processing"
+                      ? `/interview/${s.id}/processing`
+                      : s.mode === "live"
+                        ? `/interview/${s.id}/live`
+                        : null;
+                const label =
+                  s.interview_type === "resume_based" ? "Domain Interview" : s.role;
+                return (
+                  <TableRow key={s.id}>
+                    <TableCell>
+                      {href ? (
+                        <Link href={href} className="underline">
+                          {label}
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">{label}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>{s.company ?? "—"}</TableCell>
+                    <TableCell>{INTERVIEW_TYPE_LABELS[s.interview_type]}</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          s.status === "completed"
+                            ? "default"
+                            : s.status === "failed"
+                              ? "destructive"
+                              : "outline"
+                        }
+                      >
+                        {s.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{s.overall_score ?? "—"}</TableCell>
+                    <TableCell>
+                      <LocalTimestamp iso={s.created_at} dateOnly />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>

@@ -1,16 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
-import { createInterviewSession } from "@/lib/actions/sessions";
+import { startLiveInterviewFromBank } from "@/lib/actions/live-interview";
+import { startLiveInterviewFromJD } from "@/lib/actions/job-descriptions";
+import { startLiveInterviewFromResume } from "@/lib/actions/domain-interview";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { SubmitButton } from "@/components/interview/submit-button";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -20,6 +18,8 @@ import {
 } from "@/components/ui/card";
 
 const DEFAULT_SUGGESTION_QUESTION_COUNT = 5;
+const DEFAULT_BANK_QUESTION_COUNT = 6;
+const DEFAULT_JD_QUESTION_COUNT = 6;
 
 export default async function NewInterviewPage({
   searchParams,
@@ -34,7 +34,7 @@ export default async function NewInterviewPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("target_role, target_companies, suggested_interviews")
+    .select("resume_url, target_role, target_companies, suggested_interviews")
     .eq("id", user!.id)
     .single();
 
@@ -42,18 +42,27 @@ export default async function NewInterviewPage({
   const hasSuggestions = suggestions.length > 0;
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-6">
+    <div className="mx-auto flex max-w-2xl flex-col gap-6">
+      <div>
+        <h1 className="text-2xl font-semibold">Start an interview</h1>
+        <p className="text-muted-foreground">
+          Every interview here is live and conversational - the AI asks
+          questions, listens, and follows up in real time.
+        </p>
+      </div>
+
       {warning === "resume_parse_failed" && (
         <p className="text-sm text-amber-600">
           We couldn&apos;t generate suggestions from your resume, but you can
           still set up an interview manually below.
         </p>
       )}
+      {error && <p className="text-sm text-red-600">{error}</p>}
 
       {hasSuggestions && (
         <div className="flex flex-col gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">Suggested for you</h1>
+            <h2 className="text-xl font-semibold">Suggested for you</h2>
             <p className="text-muted-foreground">
               Based on your resume — pick one to start right away.
             </p>
@@ -75,7 +84,7 @@ export default async function NewInterviewPage({
                     </Badge>
                   ))}
                 </div>
-                <form action={createInterviewSession}>
+                <form action={startLiveInterviewFromBank}>
                   <input type="hidden" name="role" value={s.role} />
                   <input type="hidden" name="company" value={s.company ?? ""} />
                   <input
@@ -93,7 +102,9 @@ export default async function NewInterviewPage({
                     name="subjects"
                     value={s.subjects.join(", ")}
                   />
-                  <Button type="submit">Start this interview</Button>
+                  <SubmitButton pendingText="Starting…">
+                    Start this interview
+                  </SubmitButton>
                 </form>
               </CardContent>
             </Card>
@@ -101,75 +112,150 @@ export default async function NewInterviewPage({
         </div>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            {hasSuggestions ? "Or set up manually" : "Start a new mock interview"}
-          </CardTitle>
-          <CardDescription>
-            We&apos;ll auto-select a balanced mix of questions from the bank
-            matching your role and interview type.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form action={createInterviewSession} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="role">Role</Label>
-              <Input
-                id="role"
-                name="role"
-                defaultValue={profile?.target_role ?? ""}
-                required
+      <div>
+        <h2 className="text-xl font-semibold">
+          {hasSuggestions ? "Or start manually" : "Choose how to start"}
+        </h2>
+        <p className="text-muted-foreground">
+          Three ways to get a question set - pick whichever fits.
+        </p>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">
+              Choose a role
+            </CardTitle>
+            <CardDescription>
+              We&apos;ll auto-select a balanced mix of questions matching
+              your role from the curated bank.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              action={startLiveInterviewFromBank}
+              className="flex flex-col gap-4"
+            >
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="role">Role</Label>
+                <Input
+                  id="role"
+                  name="role"
+                  defaultValue={profile?.target_role ?? ""}
+                  required
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="company">Company (optional)</Label>
+                <Input
+                  id="company"
+                  name="company"
+                  placeholder="tcs, infosys, amazon..."
+                  defaultValue={profile?.target_companies?.[0] ?? ""}
+                />
+              </div>
+              <input
+                type="hidden"
+                name="target_companies"
+                value={profile?.target_companies?.join(", ") ?? ""}
               />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="company">Company (optional)</Label>
-              <Input
-                id="company"
-                name="company"
-                placeholder="tcs, infosys, amazon..."
-                defaultValue={profile?.target_companies?.[0] ?? ""}
-              />
-            </div>
-            <input
-              type="hidden"
-              name="target_companies"
-              value={profile?.target_companies?.join(", ") ?? ""}
-            />
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="interview_type">Interview type</Label>
-              <Select name="interview_type" defaultValue="hr_mixed">
-                <SelectTrigger id="interview_type" className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hr_mixed">Mixed (HR + technical)</SelectItem>
-                  <SelectItem value="behavioral">Behavioral</SelectItem>
-                  <SelectItem value="technical">Technical</SelectItem>
-                  <SelectItem value="company_specific">
-                    Company-specific
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="question_count">Number of questions</Label>
-              <Input
-                id="question_count"
+              {/* No interview_type selector here - always hr_mixed for the
+                  manual path, matching how the live flow already behaved
+                  before suggestion cards existed. Suggestion cards above
+                  still carry their own varied interview_type. */}
+              <input type="hidden" name="interview_type" value="hr_mixed" />
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="question_count">Number of questions</Label>
+                <Input
+                  id="question_count"
+                  name="question_count"
+                  type="number"
+                  min={3}
+                  max={10}
+                  defaultValue={DEFAULT_BANK_QUESTION_COUNT}
+                />
+              </div>
+              <SubmitButton pendingText="Starting…" className="mt-2">
+                Start interview
+              </SubmitButton>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">
+              Paste a job description
+            </CardTitle>
+            <CardDescription>
+              We&apos;ll generate questions tailored to this specific
+              posting and start right away.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form
+              action={startLiveInterviewFromJD}
+              className="flex flex-col gap-4"
+            >
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="jd_text">Job description</Label>
+                <Textarea
+                  id="jd_text"
+                  name="jd_text"
+                  rows={8}
+                  placeholder="Paste the full job posting here..."
+                  required
+                />
+              </div>
+              <input
+                type="hidden"
                 name="question_count"
-                type="number"
-                min={3}
-                max={10}
-                defaultValue={5}
+                value={DEFAULT_JD_QUESTION_COUNT}
               />
-            </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <Button type="submit" className="mt-2">
-              Start interview
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+              <SubmitButton pendingText="Generating questions…" className="mt-2">
+                Generate &amp; start
+              </SubmitButton>
+              <p className="text-xs text-muted-foreground">
+                Takes 15–30 seconds - analyzing the posting and writing
+                questions for it before the interview begins.
+              </p>
+            </form>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base font-medium">
+              Use my resume
+            </CardTitle>
+            <CardDescription>
+              Questions grounded in your actual projects and experience -
+              no typing needed.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {profile?.resume_url ? (
+              <form action={startLiveInterviewFromResume} className="flex flex-col gap-2">
+                <SubmitButton pendingText="Preparing…">
+                  Start interview
+                </SubmitButton>
+                <p className="text-xs text-muted-foreground">
+                  First time only: takes 15–30 seconds to generate questions
+                  from your resume. Instant after that.
+                </p>
+              </form>
+            ) : (
+              <Link
+                href="/resume/upload?redirect_to=%2Finterview%2Fnew"
+                className={buttonVariants({ variant: "secondary" })}
+              >
+                Upload resume to unlock
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

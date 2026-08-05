@@ -31,12 +31,16 @@ export interface InterviewState {
 export const MAX_FOLLOW_UPS_PER_QUESTION = 2;
 
 /**
- * Absolute safety valve. With 6 questions x (1 answer + 2 follow-ups) x 2
- * speakers plus intro/closing, a legitimate session tops out around 40 turns.
- * Anything past this means something is looping, so we close out rather than
- * bill an unbounded conversation.
+ * Absolute safety valve, scaled to the actual agenda length rather than a
+ * flat constant. Per question: an answer plus up to 2 follow-ups, each an
+ * agent+candidate pair (6 turns), plus a small buffer for the opening and
+ * closing turns. For the dashboard's current fixed 6-question live
+ * interviews this evaluates to 40 - close to the flat 48 this replaces -
+ * it only matters once question_count actually varies.
  */
-export const MAX_TURNS = 48;
+export function maxTurnsFor(totalQuestions: number): number {
+  return totalQuestions * 6 + 4;
+}
 
 export interface DecisionOutcome {
   state: InterviewState;
@@ -81,15 +85,16 @@ export function applyDecision(
   }
 
   const isLastQuestion = state.questionIndex >= totalQuestions - 1;
+  const maxTurns = maxTurnsFor(totalQuestions);
 
   // Safety valve outranks everything, including the model's own end request.
-  if (state.turnCount >= MAX_TURNS) {
+  if (state.turnCount >= maxTurns) {
     return {
       state: { ...state, phase: "done" },
       decision: "end_interview",
       override:
-        state.turnCount > MAX_TURNS || proposed !== "end_interview"
-          ? `turn cap (${MAX_TURNS}) reached`
+        state.turnCount > maxTurns || proposed !== "end_interview"
+          ? `turn cap (${maxTurns}) reached`
           : null,
     };
   }

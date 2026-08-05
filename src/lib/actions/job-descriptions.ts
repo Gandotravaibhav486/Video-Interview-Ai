@@ -9,12 +9,17 @@ import {
   type GeneratedCustomQuestion,
 } from "@/lib/ai/job-description";
 import { roundRobinBySubject } from "@/lib/questions/select";
-import { persistInterviewSession } from "@/lib/sessions/persist-session";
+import { launchLiveSession } from "@/lib/actions/live-interview";
 
 const QUESTIONS_PER_SUBJECT = 3;
 const DEFAULT_SESSION_QUESTION_COUNT = 6;
 
-export async function submitJobDescription(formData: FormData) {
+// One submit does analyze -> generate -> persist -> launch, replacing the old
+// two-step "generate questions, then separately click start on a listed JD"
+// flow now that there's no standalone /jd page to list past submissions on.
+// The job_descriptions/custom_questions insert is kept (not made ephemeral)
+// for provenance even without a page to browse it.
+export async function startLiveInterviewFromJD(formData: FormData) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -23,7 +28,7 @@ export async function submitJobDescription(formData: FormData) {
 
   const jdText = String(formData.get("jd_text") ?? "").trim();
   if (!jdText) {
-    redirect(`/jd?error=${encodeURIComponent("Please paste a job description")}`);
+    redirect(`/interview/new?error=${encodeURIComponent("Please paste a job description")}`);
   }
 
   let analysis: JobDescriptionAnalysis | null = null;
@@ -45,7 +50,7 @@ export async function submitJobDescription(formData: FormData) {
   // after the try/catch has fully exited instead, same pattern as
   // onboarding.ts's uploadResume.
   if (errorMessage || !analysis || !questions) {
-    redirect(`/jd?error=${encodeURIComponent(errorMessage ?? "Something went wrong")}`);
+    redirect(`/interview/new?error=${encodeURIComponent(errorMessage ?? "Something went wrong")}`);
   }
 
   const { data: jd, error: jdError } = await supabase
@@ -67,67 +72,35 @@ export async function submitJobDescription(formData: FormData) {
     throw new Error(jdError?.message ?? "Failed to save job description");
   }
 
-  const { error: questionsError } = await supabase.from("custom_questions").insert(
-    questions.map((q) => ({
-      job_description_id: jd.id,
-      subject: q.subject,
-      question_text: q.question_text,
-      reference_answer: q.reference_answer,
-      question_type: q.question_type,
-      difficulty: q.difficulty,
-    }))
-  );
+  const { data: insertedQuestions, error: questionsError } = await supabase
+    .from("custom_questions")
+    .insert(
+      questions.map((q) => ({
+        job_description_id: jd.id,
+        subject: q.subject,
+        question_text: q.question_text,
+        reference_answer: q.reference_answer,
+        question_type: q.question_type,
+        difficulty: q.difficulty,
+      }))
+    )
+    .select("*");
 
-  if (questionsError) {
+  if (questionsError || !insertedQuestions) {
     await supabase
       .from("job_descriptions")
       .update({ status: "failed" })
       .eq("id", jd.id);
-    throw new Error(questionsError.message);
+    throw new Error(questionsError?.message ?? "Failed to save generated questions");
   }
 
-  redirect("/jd");
-}
+  const selected = roundRobinBySubject(insertedQuestions, DEFAULT_SESSION_QUESTION_COUNT);
 
-export async function startInterviewFromJobDescription(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-
-  const jobDescriptionId = String(formData.get("job_description_id") ?? "");
-  const questionCount = Number(
-    formData.get("question_count") ?? DEFAULT_SESSION_QUESTION_COUNT
-  );
-
-  const { data: jd } = await supabase
-    .from("job_descriptions")
-    .select("*")
-    .eq("id", jobDescriptionId)
-    .single();
-
-  if (!jd) {
-    redirect(`/jd?error=${encodeURIComponent("Job description not found")}`);
-  }
-
-  const { data: customQuestions } = await supabase
-    .from("custom_questions")
-    .select("*")
-    .eq("job_description_id", jobDescriptionId);
-
-  if (!customQuestions || customQuestions.length === 0) {
-    redirect(
-      `/jd?error=${encodeURIComponent("No questions were generated for this job description")}`
-    );
-  }
-
-  const selected = roundRobinBySubject(customQuestions!, questionCount);
-
-  const sessionId = await persistInterviewSession(supabase, {
+  await launchLiveSession({
+    supabase,
     userId: user!.id,
-    role: jd!.role,
-    company: jd!.company,
+    role: analysis.role,
+    company: analysis.company,
     interviewType: "hr_mixed",
     questions: selected.map((q) => ({
       question_text: q.question_text,
@@ -137,6 +110,4 @@ export async function startInterviewFromJobDescription(formData: FormData) {
       custom_question_id: q.id,
     })),
   });
-
-  redirect(`/interview/${sessionId}/record`);
 }

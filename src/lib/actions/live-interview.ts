@@ -2,9 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { after } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { selectSessionQuestions } from "@/lib/questions/select";
-import { persistInterviewSession } from "@/lib/sessions/persist-session";
+import {
+  persistInterviewSession,
+  type PersistSessionQuestion,
+} from "@/lib/sessions/persist-session";
 import { transcribeAudio } from "@/lib/stt/whisper";
 import {
   runInterviewTurn,
@@ -16,7 +20,7 @@ import {
   initialState,
 } from "@/lib/interview/state-machine";
 import { scoreLiveSession } from "@/lib/ai/score-live-session";
-import type { TurnDecision } from "@/lib/supabase/types";
+import type { Database, InterviewType, TurnDecision } from "@/lib/supabase/types";
 
 function parseList(value: FormDataEntryValue | null): string[] {
   return String(value ?? "")
@@ -25,56 +29,37 @@ function parseList(value: FormDataEntryValue | null): string[] {
     .filter(Boolean);
 }
 
-// Creates the session and its planned agenda (reusing the exact same curated-
-// bank selection as the batch flow's createInterviewSession), then generates
-// and persists the opening turn before redirecting - so the agent's first
-// line is already there the moment the live page loads, with no extra round
-// trip for it.
-export async function startLiveInterview(formData: FormData) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+export interface LaunchLiveSessionParams {
+  supabase: SupabaseClient<Database>;
+  userId: string;
+  role: string;
+  company: string | null;
+  interviewType: InterviewType;
+  questions: PersistSessionQuestion[];
+}
 
-  const role = String(formData.get("role") ?? "").trim();
-  const company = String(formData.get("company") ?? "").trim() || null;
-  const questionCount = Number(formData.get("question_count") ?? 6);
-
-  const { data: bank } = await supabase
-    .from("question_bank")
-    .select("*")
-    .eq("is_active", true);
-
-  const selected = selectSessionQuestions({
-    bank: bank ?? [],
-    role,
-    companies: company ? [company] : parseList(formData.get("target_companies")),
-    interviewType: "hr_mixed",
-    questionCount,
-  });
-
-  if (selected.length === 0) {
-    redirect(
-      `/interview/new?error=${encodeURIComponent(
-        "No questions available in the bank yet for this role. Ask an admin to add some."
-      )}`
-    );
-  }
-
+// The shared tail every source of live-interview questions (curated bank, a
+// pasted JD, a resume) converges on: persist the session + its planned
+// agenda, generate and persist the opening AI turn, then redirect - so the
+// agent's first line is already there the moment the live page loads, with
+// no extra round trip for it. Callers do only their own question
+// selection/generation, then hand off here. Never returns (always redirects
+// or throws), matching how each of its three call sites already behaved.
+export async function launchLiveSession({
+  supabase,
+  userId,
+  role,
+  company,
+  interviewType,
+  questions,
+}: LaunchLiveSessionParams): Promise<never> {
   const sessionId = await persistInterviewSession(supabase, {
-    userId: user!.id,
+    userId,
     role,
     company,
-    interviewType: "hr_mixed",
+    interviewType,
     mode: "live",
-    questions: selected.map((q) => ({
-      question_text: q.question_text,
-      reference_answer: q.reference_answer,
-      subject: q.subject,
-      question_type: q.question_type,
-      question_bank_id: q.id,
-    })),
+    questions,
   });
 
   const { data: agendaRows, error: agendaError } = await supabase
@@ -113,6 +98,63 @@ export async function startLiveInterview(formData: FormData) {
   if (turnError) throw new Error(turnError.message);
 
   redirect(`/interview/${sessionId}/live`);
+}
+
+// Sources questions from the curated question_bank - backs both the
+// resume-derived suggestion cards (which pass their own interview_type) and
+// the manual "choose a role" form (which always sends hr_mixed, matching how
+// this flow already behaved before the suggestion cards existed).
+export async function startLiveInterviewFromBank(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const role = String(formData.get("role") ?? "").trim();
+  const company = String(formData.get("company") ?? "").trim() || null;
+  const interviewType = String(
+    formData.get("interview_type") ?? "hr_mixed"
+  ) as InterviewType;
+  const questionCount = Number(formData.get("question_count") ?? 6);
+  const subjects = parseList(formData.get("subjects"));
+
+  const { data: bank } = await supabase
+    .from("question_bank")
+    .select("*")
+    .eq("is_active", true);
+
+  const selected = selectSessionQuestions({
+    bank: bank ?? [],
+    role,
+    companies: company ? [company] : parseList(formData.get("target_companies")),
+    interviewType,
+    questionCount,
+    subjects: subjects.length > 0 ? subjects : undefined,
+  });
+
+  if (selected.length === 0) {
+    redirect(
+      `/interview/new?error=${encodeURIComponent(
+        "No questions available in the bank yet for this role. Ask an admin to add some."
+      )}`
+    );
+  }
+
+  await launchLiveSession({
+    supabase,
+    userId: user!.id,
+    role,
+    company,
+    interviewType,
+    questions: selected.map((q) => ({
+      question_text: q.question_text,
+      reference_answer: q.reference_answer,
+      subject: q.subject,
+      question_type: q.question_type,
+      question_bank_id: q.id,
+    })),
+  });
 }
 
 export interface SubmitTurnParams {
@@ -202,18 +244,6 @@ export async function submitTurn({
   const candidateTurnIndex = ordered.length;
   const currentQuestion = agendaRows[positionalState.questionIndex];
 
-  const { error: candidateInsertError } = await supabase.from("live_turns").insert({
-    session_id: sessionId,
-    session_question_id: currentQuestion.id,
-    turn_index: candidateTurnIndex,
-    speaker: "candidate",
-    text: candidateText,
-    audio_storage_path: audioStoragePath,
-    audio_duration_seconds: audioDurationSeconds,
-    frames_extracted: framePaths,
-  });
-  if (candidateInsertError) throw new Error(candidateInsertError.message);
-
   const transcriptForModel = [
     ...ordered.map((t) => ({ speaker: t.speaker, text: t.text })),
     { speaker: "candidate" as const, text: candidateText },
@@ -244,6 +274,22 @@ export async function submitTurn({
     agendaRows.length
   );
 
+  // The model's utterance was composed for the decision it *proposed* - if
+  // the state machine overrode that decision, the model's own text no longer
+  // matches what's actually happening (e.g. it wrote another follow-up
+  // question, but the turn cap forced an end). Reusing it verbatim showed the
+  // candidate a normal-looking line right before the interview abruptly
+  // stopped. Substitute a deterministic line instead - no second API call
+  // needed, since the state machine already knows exactly what happened and
+  // why. An override only ever resolves to end_interview or next_question,
+  // never follow_up (see state-machine.ts's applyDecision).
+  const utterance =
+    outcome.override == null
+      ? turnResult.utterance
+      : outcome.decision === "end_interview"
+        ? "That's all the time we have for today — thanks for taking part, we'll follow up with feedback separately."
+        : `Let's move to the next question: ${agendaRows[outcome.state.questionIndex]?.question_text ?? ""}`;
+
   // Closing remarks belong to no single question; anything else is tagged
   // with whatever question it now addresses (the same one, on a follow-up;
   // the next one, on an advance).
@@ -252,12 +298,32 @@ export async function submitTurn({
       ? null
       : agendaRows[outcome.state.questionIndex]?.id ?? null;
 
+  // Both turns are persisted together, only now that runInterviewTurn has
+  // actually succeeded - not before it's called. Inserting the candidate's
+  // turn earlier left it orphaned (no agent reply) whenever the AI call
+  // threw, and every retry after that sent the model two candidate/user
+  // turns back to back with nothing from the agent between them - which the
+  // API's strict role alternation rejects outright, turning one transient
+  // failure into a permanently stuck session (confirmed live: session
+  // 916c0af6's turn_index 9).
+  const { error: candidateInsertError } = await supabase.from("live_turns").insert({
+    session_id: sessionId,
+    session_question_id: currentQuestion.id,
+    turn_index: candidateTurnIndex,
+    speaker: "candidate",
+    text: candidateText,
+    audio_storage_path: audioStoragePath,
+    audio_duration_seconds: audioDurationSeconds,
+    frames_extracted: framePaths,
+  });
+  if (candidateInsertError) throw new Error(candidateInsertError.message);
+
   const { error: agentInsertError } = await supabase.from("live_turns").insert({
     session_id: sessionId,
     session_question_id: agentTurnQuestionId,
     turn_index: candidateTurnIndex + 1,
     speaker: "agent",
-    text: turnResult.utterance,
+    text: utterance,
     decision: outcome.decision,
     decision_rationale: outcome.override
       ? `${turnResult.decisionRationale} [overridden: ${outcome.override}]`
@@ -269,14 +335,14 @@ export async function submitTurn({
   if (outcome.decision === "end_interview") {
     await endLiveInterview(sessionId);
     return {
-      utterance: turnResult.utterance,
+      utterance,
       candidateTranscript: candidateText,
       done: true,
     };
   }
 
   return {
-    utterance: turnResult.utterance,
+    utterance,
     candidateTranscript: candidateText,
     done: false,
   };
@@ -292,6 +358,38 @@ export async function endLiveInterview(sessionId: string): Promise<void> {
     .update({ status: "processing" })
     .eq("id", sessionId);
   if (error) throw new Error(error.message);
+
+  after(() => scoreLiveSession(sessionId));
+}
+
+// Recovery path for a session whose scoring pass died mid-flight (observed
+// for real: the dev server process crashed between two scoreLiveSession()
+// question iterations, leaving the session on "processing" forever - nothing
+// in the app otherwise ever calls scoreLiveSession() a second time). Safe to
+// call on a session that's already partway scored: scoreLiveSession() skips
+// any question whose answer is already "complete", so this only pays for
+// the work that's actually still missing.
+export async function retryLiveScoring(sessionId: string): Promise<void> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { data: session } = await supabase
+    .from("interview_sessions")
+    .select("user_id, mode, status")
+    .eq("id", sessionId)
+    .single();
+  if (!session || session.user_id !== user.id) {
+    throw new Error("Session not found");
+  }
+  if (session.mode !== "live") {
+    throw new Error("Retry is only available for live-mode sessions");
+  }
+  if (session.status !== "processing") {
+    throw new Error("This session isn't stuck - there's nothing to retry");
+  }
 
   after(() => scoreLiveSession(sessionId));
 }

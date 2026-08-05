@@ -35,7 +35,6 @@ export default async function AppLayout({
           <div className="flex items-center gap-4 text-sm">
             <Link href="/dashboard">Dashboard</Link>
             <Link href="/interview/new">New interview</Link>
-            <Link href="/jd">Job description</Link>
             {profile.is_admin && (
               <Link href="/question-bank">Question bank</Link>
             )}

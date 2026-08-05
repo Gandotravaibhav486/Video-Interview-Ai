@@ -24,16 +24,18 @@ export interface PersistSessionParams {
   company: string | null;
   interviewType: InterviewType;
   questions: PersistSessionQuestion[];
-  /** Defaults to "batch" so every existing caller needs zero changes. */
+  /**
+   * Defaults to "batch" for the enum's historical value - every session
+   * created going forward passes "live" explicitly via launchLiveSession().
+   */
   mode?: SessionMode;
 }
 
-// Shared by the curated-question-bank flow (createInterviewSession), the
-// custom-JD-question flow (startInterviewFromJobDescription), and the live
-// conversational flow (startLiveInterview) - the interview_sessions +
-// session_questions insert shape is identical across all three, only the
-// question source and mode differ. Callers still handle their own
-// redirect() after this resolves.
+// Called from launchLiveSession() (src/lib/actions/live-interview.ts), the
+// shared tail for every source a live interview can be started from
+// (curated bank, a pasted JD, a resume) - the interview_sessions +
+// session_questions insert shape is identical regardless of source, only the
+// question source and FK field differ.
 export async function persistInterviewSession(
   supabase: SupabaseClient<Database>,
   { userId, role, company, interviewType, questions, mode = "batch" }: PersistSessionParams

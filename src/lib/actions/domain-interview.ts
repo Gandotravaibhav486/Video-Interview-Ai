@@ -9,12 +9,12 @@ import {
   type GeneratedDomainQuestion,
 } from "@/lib/ai/domain-interview";
 import { roundRobinBySubject } from "@/lib/questions/select";
-import { persistInterviewSession } from "@/lib/sessions/persist-session";
+import { launchLiveSession } from "@/lib/actions/live-interview";
 
 const QUESTIONS_PER_SUBJECT = 3;
 const SESSION_QUESTION_COUNT = 6;
 
-export async function startDomainInterview() {
+export async function startLiveInterviewFromResume() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -28,7 +28,7 @@ export async function startDomainInterview() {
     .single();
 
   if (!profile?.resume_url) {
-    redirect("/resume/upload?redirect_to=" + encodeURIComponent("/dashboard"));
+    redirect("/resume/upload?redirect_to=" + encodeURIComponent("/interview/new"));
   }
 
   const { data: existing } = await supabase
@@ -73,7 +73,7 @@ export async function startDomainInterview() {
     // error and redirect only after the try/catch has fully exited.
     if (errorMessage || !analysis || !questions) {
       redirect(
-        `/dashboard?error=${encodeURIComponent(errorMessage ?? "Something went wrong")}`
+        `/interview/new?error=${encodeURIComponent(errorMessage ?? "Something went wrong")}`
       );
     }
 
@@ -100,7 +100,8 @@ export async function startDomainInterview() {
 
   const selected = roundRobinBySubject(domainQuestions, SESSION_QUESTION_COUNT);
 
-  const sessionId = await persistInterviewSession(supabase, {
+  await launchLiveSession({
+    supabase,
     userId: user!.id,
     role: profile!.target_role || "Domain Interview",
     company: null,
@@ -113,6 +114,4 @@ export async function startDomainInterview() {
       domain_question_id: q.id,
     })),
   });
-
-  redirect(`/interview/${sessionId}/record`);
 }

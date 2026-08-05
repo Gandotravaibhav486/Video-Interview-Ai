@@ -20,7 +20,9 @@ export default async function LiveInterviewPage({
     .single();
 
   if (!session) redirect("/dashboard");
-  if (session.mode !== "live") redirect(`/interview/${sessionId}/record`);
+  // No record-flow route exists any more - a stray non-live session here
+  // (only possible from old data) has nowhere else to go.
+  if (session.mode !== "live") redirect("/dashboard");
   if (session.status === "completed" || session.status === "failed") {
     redirect(`/interview/${sessionId}/results`);
   }
@@ -28,7 +30,7 @@ export default async function LiveInterviewPage({
     redirect(`/interview/${sessionId}/processing`);
   }
 
-  // startLiveInterview() always inserts the opening turn before redirecting
+  // launchLiveSession() always inserts the opening turn before redirecting
   // here, so there should always be exactly one turn at this point - but
   // guard rather than assume, since a hard refresh mid-flow re-runs this.
   const { data: turns } = await supabase
