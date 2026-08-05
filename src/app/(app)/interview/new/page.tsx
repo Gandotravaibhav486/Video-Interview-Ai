@@ -237,6 +237,12 @@ export default async function NewInterviewPage({
           <CardContent>
             {profile?.resume_url ? (
               <form action={startLiveInterviewFromResume} className="flex flex-col gap-2">
+                <p className="text-sm text-muted-foreground">
+                  Role:{" "}
+                  <span className="font-medium text-foreground">
+                    {profile?.target_role || "Not set - update it in your profile"}
+                  </span>
+                </p>
                 <SubmitButton pendingText="Preparing…">
                   Start interview
                 </SubmitButton>
