@@ -28,6 +28,7 @@ const INTERVIEW_TYPE_LABELS: Record<InterviewType, string> = {
   hr_mixed: "HR Mixed",
   company_specific: "Company Specific",
   resume_based: "Domain Interview",
+  jd_based: "Job Description",
 };
 
 export default async function DashboardPage({

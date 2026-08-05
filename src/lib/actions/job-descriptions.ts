@@ -101,7 +101,7 @@ export async function startLiveInterviewFromJD(formData: FormData) {
     userId: user!.id,
     role: analysis.role,
     company: analysis.company,
-    interviewType: "hr_mixed",
+    interviewType: "jd_based",
     questions: selected.map((q) => ({
       question_text: q.question_text,
       reference_answer: q.reference_answer,

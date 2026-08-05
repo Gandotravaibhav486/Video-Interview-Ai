@@ -19,10 +19,12 @@ const TYPE_FILTER: Record<InterviewType, QuestionType[] | null> = {
   technical: ["technical"],
   hr_mixed: null, // no type restriction, round-robin across subjects instead
   company_specific: null,
-  // Domain-interview sessions never call selectSessionQuestions (they
-  // source from domain_questions directly), so this entry only exists to
-  // satisfy the Record<InterviewType, ...> exhaustiveness check.
+  // Domain-interview and JD-based sessions never call selectSessionQuestions
+  // (they source from domain_questions/custom_questions directly), so these
+  // entries only exist to satisfy the Record<InterviewType, ...>
+  // exhaustiveness check.
   resume_based: null,
+  jd_based: null,
 };
 
 export interface SelectQuestionsParams {

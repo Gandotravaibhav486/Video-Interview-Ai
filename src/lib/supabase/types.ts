@@ -8,7 +8,8 @@ export type InterviewType =
   | "technical"
   | "hr_mixed"
   | "company_specific"
-  | "resume_based";
+  | "resume_based"
+  | "jd_based";
 export type SessionStatus =
   | "draft"
   | "in_progress"
