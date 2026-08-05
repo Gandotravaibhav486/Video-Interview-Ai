@@ -20,12 +20,18 @@ import {
 } from "@/components/ui/card";
 
 // One pairing is three sequential AI calls (web-search research, generate,
-// verify) and takes ~5-7 minutes, so the server actions on this page need far
-// more headroom than the default. Even this ceiling is above what Vercel Hobby
-// (60s) and standard Pro (300s) allow - generation is realistically a local
-// admin tool, which also matches the CSV export, whose writes are lost on a
-// serverless filesystem anyway.
-export const maxDuration = 800;
+// verify) and can take several minutes, so the server actions on this page
+// need far more headroom than the default. 300 is the actual hard ceiling
+// Vercel enforces at build time for the Hobby plan this project is on - a
+// higher value doesn't just get silently clamped, it fails the production
+// build outright (confirmed live 2026-08-05: this broke every deploy since
+// the value was first set to 800, well before that was noticed). A pairing
+// that genuinely needs longer than 300s will still time out; that's a real
+// limitation of this plan, not something to work around by raising this
+// number again. Generation is realistically a local admin tool anyway,
+// which also matches the CSV export, whose writes are lost on a serverless
+// filesystem.
+export const maxDuration = 300;
 
 export default async function QuestionBankPage({
   searchParams,
