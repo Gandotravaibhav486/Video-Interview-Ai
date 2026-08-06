@@ -4,6 +4,8 @@ function normalize(value: string): string {
   return value.trim().toLowerCase().replace(/\s+/g, "_");
 }
 
+// Deliberately loose substring matching, because a role arrives as free text
+// from a form ("Senior SDE") and has to line up with a curated tag ("sde").
 function tagMatches(tags: string[], candidates: string[]): boolean {
   if (tags.length === 0 || candidates.length === 0) return true;
   const normalizedCandidates = candidates.map(normalize);
@@ -12,6 +14,27 @@ function tagMatches(tags: string[], candidates: string[]): boolean {
       (candidate) => candidate.includes(tag) || tag.includes(candidate)
     )
   );
+}
+
+// Companies need the same free-text tolerance ("Texas Instruments" typed into
+// the form must reach rows tagged `texas_instruments`, and "Amazon India"
+// must still reach `amazon`) but NOT tagMatches' raw substring test, which
+// happily matches across word boundaries: `ey` is a substring of `mckinsey`,
+// so EY's questions leaked into McKinsey interviews and vice versa (confirmed
+// live 2026-08-06). Comparing whole underscore-separated tokens keeps the
+// useful fuzziness - a tag matches when one side's tokens are a subset of the
+// other's - while making a mid-word collision impossible.
+function companyMatches(tags: string[], candidates: string[]): boolean {
+  if (tags.length === 0 || candidates.length === 0) return true;
+  const candidateTokens = candidates.map((c) => new Set(normalize(c).split("_")));
+  return tags.some((tag) => {
+    const tagTokens = normalize(tag).split("_");
+    return candidateTokens.some(
+      (tokens) =>
+        tagTokens.every((t) => tokens.has(t)) ||
+        [...tokens].every((t) => tagTokens.includes(t))
+    );
+  });
 }
 
 const TYPE_FILTER: Record<InterviewType, QuestionType[] | null> = {
@@ -95,7 +118,7 @@ export function selectSessionQuestions({
       return false;
     }
     if (interviewType === "company_specific" && companies.length > 0) {
-      if (!tagMatches(q.company_tags, companies)) return false;
+      if (!companyMatches(q.company_tags, companies)) return false;
     }
     return tagMatches(q.role_tags, roleCandidates);
   });
