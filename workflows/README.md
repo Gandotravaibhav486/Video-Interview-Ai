@@ -17,3 +17,7 @@ chat UI or terminal.
   interview questions with reference answers, run manually in chat as a
   zero-marginal-cost alternative to the API-driven pipeline in
   `src/lib/ai/question-bank-generation.ts`.
+- [task-scheduler.md](task-scheduler.md) — a running to-do list for this
+  project. Add tasks any time; say **"clean"** in chat to have them
+  triaged — status re-verified, done items logged with what actually
+  happened, and the top 3 most urgent surfaced.
