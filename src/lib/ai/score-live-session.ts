@@ -1,7 +1,9 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { scoreAnswer } from "@/lib/ai/scoring";
 import { maybeFinalizeSession } from "@/lib/ai/finalize-session";
 import { assembleQuestionMedia } from "@/lib/interview/assemble-question-media";
+import type { Database } from "@/lib/supabase/types";
 
 // The post-session scoring pass for live mode. Runs once per PLANNED
 // question, not once per turn - a topic answered across an opening turn plus
@@ -101,4 +103,76 @@ export async function scoreLiveSession(sessionId: string): Promise<void> {
   }
 
   await maybeFinalizeSession(sessionId);
+  await purgeSessionFrames(supabase, sessionId);
+}
+
+/**
+ * Deletes a session's sampled frames once every question has been scored.
+ *
+ * Frames exist only to feed scoreAnswer()'s vision rubric. Nothing renders
+ * them afterwards - the results page reads transcripts, scores and feedback
+ * (all DB columns) and never touches the `frames` bucket - so once scoring is
+ * complete they are pure storage cost. At ~1.9MB per live session against a
+ * 1GB bucket that is roughly 1.5% of total capacity burned per interview,
+ * forever, for bytes nothing will ever read again.
+ *
+ * Two deliberate constraints:
+ *
+ * 1. Only purges when EVERY question reached feedback_status 'complete'. A
+ *    partially-failed session is exactly the case retryLiveScoring() exists
+ *    to recover, and that retry re-runs assembleQuestionMedia() - deleting
+ *    the frames first would silently downgrade the retry to a transcript-only
+ *    score.
+ * 2. Best-effort. Scoring has already succeeded and been finalized by this
+ *    point; a storage hiccup must not turn a completed interview into a
+ *    failed one. Worst case the frames linger and the retention sweep gets
+ *    them later.
+ *
+ * `live_turns.frames_extracted` is left populated as the record of what was
+ * captured. That is safe because gatherFrames() drops a frame it cannot
+ * download rather than throwing, so any future reader degrades to
+ * transcript-only rather than breaking.
+ */
+export async function purgeSessionFrames(
+  supabase: SupabaseClient<Database>,
+  sessionId: string
+): Promise<number> {
+  try {
+    const { data: questions } = await supabase
+      .from("session_questions")
+      .select("id")
+      .eq("session_id", sessionId);
+    if (!questions?.length) return 0;
+
+    const { data: answers } = await supabase
+      .from("answers")
+      .select("question_id, feedback_status")
+      .in(
+        "question_id",
+        questions.map((q) => q.id)
+      );
+
+    const allComplete =
+      answers?.length === questions.length &&
+      answers.every((a) => a.feedback_status === "complete");
+    if (!allComplete) return 0;
+
+    const { data: turns } = await supabase
+      .from("live_turns")
+      .select("frames_extracted")
+      .eq("session_id", sessionId);
+
+    const paths = (turns ?? []).flatMap((t) => t.frames_extracted ?? []);
+    if (paths.length === 0) return 0;
+
+    const { error } = await supabase.storage.from("frames").remove(paths);
+    if (error) {
+      console.error(`Frame purge failed for session ${sessionId}:`, error.message);
+      return 0;
+    }
+    return paths.length;
+  } catch (err) {
+    console.error(`Frame purge failed for session ${sessionId}:`, err);
+    return 0;
+  }
 }
