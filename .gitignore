@@ -37,6 +37,11 @@ yarn-error.log*
 # local question-bank review exports (operator's own verification, not shipped)
 /question-bank-export/
 
+# per-machine agent settings. The vendored skills in .agents/ (and the
+# .claude/skills symlink into them) ARE committed on purpose - this only
+# excludes the local, machine-specific permission file.
+.claude/settings.local.json
+
 # vercel
 .vercel
 

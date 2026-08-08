@@ -86,6 +86,20 @@ docs/                 architecture and operations
 - **[workflows/](workflows/)** — manual chat workflows and the running to-do list
 - **[AGENTS.md](AGENTS.md)** — instructions for AI coding agents working in this repo
 
+### Vendored agent skills
+
+`.agents/skills/` holds skills committed to the repo so every contributor and
+agent gets the same behaviour, pinned by content hash in `skills-lock.json`.
+`.claude/skills/` symlinks into it for Claude Code; the same directory is read
+by Codex, Cursor, Copilot and others.
+
+Currently vendored: **`documentation`** — used to write the docs above, and
+the thing to reach for when adding or reworking them.
+
+```bash
+npx skills add <repo-url> --skill <name>   # add another
+```
+
 ## Contributing
 
 Work commits directly to `main`; Vercel deploys on push. Before pushing:
