@@ -143,6 +143,25 @@ that commit, so this pass split that entry rather than resolving it whole).*
       documented easy-to-medium bar and should be recalibrated. 4 of the 8 came
       in with the tier-2 drop; the other 4 have been in the bank since tier 1.
       (The 9th — `sde@infosys`'s false-premise stem — was fixed 2026-08-06.)
+- [ ] Refine the documentation in `docs/` — first pass written 2026-08-06
+      (`README.md`, `docs/ARCHITECTURE.md`, `docs/RUNBOOK.md`) using the
+      `documentation` skill. It's accurate as of today and every internal link
+      resolves, but it was written in one pass from one person's context, so:
+      (1) **read it as a newcomer** — the ARCHITECTURE turn-loop and
+      "model proposes, code disposes" sections assume more familiarity than a
+      first-time reader has; (2) **add diagrams** — the turn loop and the
+      turns→answers assembly are both easier to see than to read, and there's
+      currently only one ASCII flow; (3) **decide what happens to the loose
+      root-level markdown** (`video-ai-brain.md`, `financial-analysis.md`,
+      `operating-cost-analysis.md`, `article-*.md`) — some belongs in `docs/`,
+      some is private and should stay untracked, and right now the split is
+      accidental rather than chosen; (4) **the RUNBOOK's storage section
+      references a walk-the-bucket script that only exists in chat history** —
+      commit it as a real script under `scripts/` and link it; (5) re-check the
+      "Known limitations" list in ARCHITECTURE against reality before showing
+      the docs to anyone, since several items are actively being worked on and
+      will go stale fastest. Also fix the **duplicate `0008` migration number**
+      flagged in the RUNBOOK before adding `0009`.
 - [ ] Run tier-3 placement-matrix pairings (36) — same file, `pairingsByPriority(3)`.
 - [ ] Backfill `skills` tags on the original 23 manually-written questions —
       re-confirmed 2026-08-06: still 0/23 manual rows tagged (bank is now 498

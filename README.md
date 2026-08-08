@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# InterviewPrep
 
-## Getting Started
+AI-conducted mock interviews for Indian campus placements. A student picks how
+to start, then sits a **live, conversational interview** — the AI asks a
+question, listens, decides whether to probe deeper or move on, and closes out.
+Afterwards it scores every answer against a rubric and tracks progress over
+time.
 
-First, run the development server:
+Live at **[mockintervew.com](https://mockintervew.com)**.
+
+## Quick start
 
 ```bash
+npm install
+cp .env.local.example .env.local   # then fill in the values below
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open <http://localhost:3000>. You'll need a Supabase project with the
+migrations in `supabase/migrations/` already applied — see
+[docs/RUNBOOK.md](docs/RUNBOOK.md#applying-a-migration), since there's no CLI
+link and migrations are applied by hand.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Purpose |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Browser-side Supabase client |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side writes + background scoring. **Never expose to the browser.** |
+| `ANTHROPIC_API_KEY` | Claude — the interviewer, scoring, and all content generation |
+| `GROQ_API_KEY` | Speech-to-text (`whisper-large-v3-turbo`) |
+| `RECORDING_RETENTION_DAYS` | Intended media retention window. **Declared but not yet enforced** — see [RUNBOOK](docs/RUNBOOK.md#storage). |
+| `NEXT_PUBLIC_APP_URL` | Absolute URLs in emails/redirects |
+| `RESEND_API_KEY`, `NOTIFY_EMAIL` | Optional visit notifications |
 
-## Learn More
+## How an interview works
 
-To learn more about Next.js, take a look at the following resources:
+Three ways to start, all producing the same live interview:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Source | What it does |
+|---|---|
+| **Choose a role** | Picks a balanced subject mix from the curated question bank (728 questions, 48 companies, 16 roles) |
+| **Paste a job description** | Analyses the posting and generates questions specific to it, then starts immediately |
+| **Use my resume** | Generates questions grounded in your actual projects, skills and metrics |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Whichever you pick, the session runs through the same turn loop and the same
+post-session scoring pass. See
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how that loop works and why
+it's shaped the way it is.
 
-## Deploy on Vercel
+## Stack
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Next.js 16** (App Router, Turbopack) · React 19 · TypeScript · Tailwind · shadcn/ui
+- **Supabase** — Postgres with row-level security, Auth, Storage
+- **Claude** — `claude-opus-5` for the live interviewer and question verification, `claude-sonnet-5` for scoring, resume and JD analysis
+- **Groq** — `whisper-large-v3-turbo` for speech-to-text, called synchronously inside a route handler
+- **Vercel** — auto-deploys from `main`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+No WebRTC, no SFU, no video-infra vendor. Capture is browser-native
+(`getUserMedia` + `MediaRecorder` + a canvas frame loop) and uploads straight
+to Supabase Storage — see
+[ARCHITECTURE § Media capture](docs/ARCHITECTURE.md#media-capture).
+
+## Layout
+
+```
+src/
+  app/(app)/          dashboard, interview flow, admin question bank
+  app/(auth)/         login, signup
+  app/(onboarding)/   two-step onboarding, gated separately from (app)
+  lib/ai/             interviewer, scoring, JD/resume/question-bank generation
+  lib/interview/      turn state machine, per-question media assembly
+  lib/questions/      curated-bank selection, placement matrix
+  lib/actions/        server actions (session creation, turns, uploads)
+  hooks/              useInterviewRecorder, useSilenceDetection
+supabase/migrations/  schema, applied manually
+workflows/            manual chat workflows + the project to-do list
+docs/                 architecture and operations
+```
+
+## Docs
+
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — how the live interview loop, scoring, and question sourcing actually work, and the constraints that shaped them
+- **[docs/RUNBOOK.md](docs/RUNBOOK.md)** — migrations, recovering stuck sessions, storage cleanup, deploy gotchas
+- **[workflows/](workflows/)** — manual chat workflows and the running to-do list
+- **[AGENTS.md](AGENTS.md)** — instructions for AI coding agents working in this repo
+
+## Contributing
+
+Work commits directly to `main`; Vercel deploys on push. Before pushing:
+
+```bash
+npx tsc --noEmit && npx eslint src
+```
+
+A green build locally does **not** guarantee a green Vercel build — see
+[RUNBOOK § Deploys](docs/RUNBOOK.md#deploys) for the two ways that has bitten.
