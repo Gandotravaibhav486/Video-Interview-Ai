@@ -21,3 +21,9 @@ chat UI or terminal.
   project. Add tasks any time; say **"clean"** in chat to have them
   triaged — status re-verified, done items logged with what actually
   happened, and the top 3 most urgent surfaced.
+- [doc-update.md](doc-update.md) — keeps the published docs honest as the app
+  changes. Say **"doc-update"** to run it. Reads the append-only `raw/` sources
+  and the agent-owned `ai/` knowledge base, updates `ai/`, then **suggests**
+  (never applies) changes to `README.md` and `docs/`. Follows Andrej
+  Karpathy's LLM wiki pattern, with a review gate added on anything a human
+  will act on.
