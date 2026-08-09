@@ -52,9 +52,12 @@ without any other context.
 
 ## Pending
 
-*Last cleaned: 2026-08-06 (first run since the live-only consolidation
-shipped; two of the four live-UX sub-items turned out to have landed inside
-that commit, so this pass split that entry rather than resolving it whole).*
+*Last cleaned: 2026-08-06 (second run today, after the tier-2 question-bank
+load, the company-matching fix, the storage cleanup and the docs pass. Every
+pending item below was re-verified against code or the live database and all
+are genuinely still open — nothing moved to Done in this pass. Corrected two
+stale bank counts (498 → 728) and split the duplicate-`0008` migration into
+its own item, since it blocks the next migration rather than the docs.)*
 
 - [ ] Live-interview UX fixes !high — **half of this landed in `c759afe`**;
       the two remaining sub-items are: (1) group the question agenda by
@@ -108,7 +111,8 @@ that commit, so this pass split that entry rather than resolving it whole).*
       `c759afe`: an AI call that throws mid-flow leaves partial state behind.
 - [ ] Re-run `product_manager @ dream11` — still outstanding; confirmed
       2026-08-06 that the bank has 0 rows carrying a `dream11` company tag
-      (498 rows total), so nothing from this pairing ever landed.
+      (re-confirmed after the tier-2 load, 728 rows total), so nothing from
+      this pairing ever landed.
 - [ ] Run tier-2 placement-matrix pairings — **23 of 61 done** as of
       2026-08-06 (loaded from the user's separate generation chat; see the
       Done entry below). **38 left**, split by category: it_services 9,
@@ -160,13 +164,21 @@ that commit, so this pass split that entry rather than resolving it whole).*
       commit it as a real script under `scripts/` and link it; (5) re-check the
       "Known limitations" list in ARCHITECTURE against reality before showing
       the docs to anyone, since several items are actively being worked on and
-      will go stale fastest. Also fix the **duplicate `0008` migration number**
-      flagged in the RUNBOOK before adding `0009`.
+      will go stale fastest.
+- [ ] Renumber the **duplicate `0008` migration** — both
+      `0008_jd_based_interview_type.sql` and `0008_question_bank_skills.sql`
+      exist and are applied, so the numbering no longer conveys order. Harmless
+      today, actively misleading the moment anyone writes `0009` or replays the
+      migrations against a fresh database. Renaming an applied file is safe (the
+      database is the source of truth, not the file), but check which was
+      actually applied first before picking the new number. Flagged in
+      `docs/RUNBOOK.md`.
 - [ ] Run tier-3 placement-matrix pairings (36) — same file, `pairingsByPriority(3)`.
 - [ ] Backfill `skills` tags on the original 23 manually-written questions —
-      re-confirmed 2026-08-06: still 0/23 manual rows tagged (bank is now 498
-      rows total), so Domain Interview's resume-skill matching still can never
-      surface the hand-written questions.
+      re-confirmed 2026-08-06 after the tier-2 load: still 0/23 manual rows
+      tagged, and the bank is now 728 rows, so the hand-written questions are
+      an ever-shrinking fraction that Domain Interview's resume-skill matching
+      can never surface.
 - [ ] Pressure test the interview rounds, or build a workflow to test questions
       for each interview round (note: the video/webcam portion itself can't
       be exercised by AI, so this is necessarily a partly-manual check).
