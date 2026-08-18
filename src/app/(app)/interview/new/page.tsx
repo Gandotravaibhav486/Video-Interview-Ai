@@ -24,9 +24,14 @@ const DEFAULT_JD_QUESTION_COUNT = 6;
 export default async function NewInterviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; warning?: string }>;
+  searchParams: Promise<{
+    error?: string;
+    warning?: string;
+    unavailable_role?: string;
+    available?: string;
+  }>;
 }) {
-  const { error, warning } = await searchParams;
+  const { error, warning, unavailable_role, available } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
@@ -58,6 +63,13 @@ export default async function NewInterviewPage({
         </p>
       )}
       {error && <p className="text-sm text-red-600">{error}</p>}
+
+      {unavailable_role && (
+        <RoleUnavailableNotice
+          role={unavailable_role}
+          availableRoles={(available ?? "").split(",").filter(Boolean)}
+        />
+      )}
 
       {hasSuggestions && (
         <div className="flex flex-col gap-4">
@@ -262,6 +274,81 @@ export default async function NewInterviewPage({
           </CardContent>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function humanizeRole(tag: string): string {
+  return tag
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/**
+ * Shown when a student asked for a role the curated bank does not cover.
+ *
+ * This replaces silently substituting a random cross-subject agenda, which is
+ * how a McKinsey consulting interview ended up asking about recursion and
+ * Moore vs Mealy machines. Saying "we don't have this yet" costs a session;
+ * quietly asking the wrong questions costs the student's trust in every score
+ * the product has ever given them.
+ *
+ * The two offers are ordered by how well they actually answer the request:
+ * the job-description path produces genuinely role-specific questions, so it
+ * comes first and is the primary action. The curated roles are the
+ * consolation, not the headline.
+ */
+function RoleUnavailableNotice({
+  role,
+  availableRoles,
+}: {
+  role: string;
+  availableRoles: string[];
+}) {
+  return (
+    <div className="rounded-xl border border-amber-300/60 bg-amber-50/60 p-5">
+      <h2 className="text-display-sm">
+        We don&apos;t have a question set for &ldquo;{role}&rdquo; yet.
+      </h2>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Rather than hand you questions written for a different role, here are
+        two ways to get an interview that actually fits.
+      </p>
+
+      <p className="mt-5 text-sm">
+        <span className="font-medium">Paste the job description</span> — we
+        generate questions from that specific posting, which is the closest fit
+        for a role we don&apos;t curate yet. Use the card below.
+      </p>
+
+      {availableRoles.length > 0 && (
+        <>
+          <p className="mt-4 text-sm font-medium">
+            Or start one of the roles we do cover:
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {availableRoles.map((r) => (
+              <form key={r} action={startLiveInterviewFromBank}>
+                <input type="hidden" name="role" value={r} />
+                <input type="hidden" name="interview_type" value="hr_mixed" />
+                <input
+                  type="hidden"
+                  name="question_count"
+                  value={DEFAULT_BANK_QUESTION_COUNT}
+                />
+                <SubmitButton
+                  variant="outline"
+                  size="pill-sm"
+                  pendingText="Starting…"
+                >
+                  {humanizeRole(r)}
+                </SubmitButton>
+              </form>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

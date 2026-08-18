@@ -124,7 +124,7 @@ export async function startLiveInterviewFromBank(formData: FormData) {
     .select("*")
     .eq("is_active", true);
 
-  const selected = selectSessionQuestions({
+  const { questions, roleUnavailable, availableRoles } = selectSessionQuestions({
     bank: bank ?? [],
     role,
     companies: company ? [company] : parseList(formData.get("target_companies")),
@@ -133,7 +133,19 @@ export async function startLiveInterviewFromBank(formData: FormData) {
     subjects: subjects.length > 0 ? subjects : undefined,
   });
 
-  if (selected.length === 0) {
+  // Named separately from the generic empty case: "we don't cover this role"
+  // is actionable (pick another, or paste a JD) in a way that "no questions
+  // available" is not. The role and the real alternatives are passed through
+  // so /interview/new can offer them as one-click choices.
+  if (roleUnavailable) {
+    redirect(
+      `/interview/new?unavailable_role=${encodeURIComponent(
+        role
+      )}&available=${encodeURIComponent(availableRoles.join(","))}`
+    );
+  }
+
+  if (questions.length === 0) {
     redirect(
       `/interview/new?error=${encodeURIComponent(
         "No questions available in the bank yet for this role. Ask an admin to add some."
@@ -147,7 +159,7 @@ export async function startLiveInterviewFromBank(formData: FormData) {
     role,
     company,
     interviewType,
-    questions: selected.map((q) => ({
+    questions: questions.map((q) => ({
       question_text: q.question_text,
       reference_answer: q.reference_answer,
       subject: q.subject,
