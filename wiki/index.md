@@ -1,6 +1,7 @@
 # Knowledge base index
 
-Agent-owned synthesis derived from [`raw/`](../raw/). Maintained by the
+Agent-owned synthesis derived from [`raw/`](../raw/). Kept current as work
+happens, and refreshed in bulk by the
 [doc-update workflow](../workflows/doc-update.md) — say **"doc-update"** to run it.
 
 Every page below is written and rewritten by the agent. New facts are folded

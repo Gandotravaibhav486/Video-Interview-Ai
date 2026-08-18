@@ -40,7 +40,7 @@ Three ways to start, all producing the same live interview:
 
 | Source | What it does |
 |---|---|
-| **Choose a role** | Picks a balanced subject mix from the curated question bank (728 questions, 48 companies, 16 roles) |
+| **Choose a role** | Picks a role + company and get subject questions around that from a well curated mixed subject question bank (728 questions, 48 companies, 16 roles) |
 | **Paste a job description** | Analyses the posting and generates questions specific to it, then starts immediately |
 | **Use my resume** | Generates questions grounded in your actual projects, skills and metrics |
 
@@ -86,6 +86,12 @@ docs/                 architecture and operations
 - **[workflows/](workflows/)** — manual chat workflows and the running to-do list
 - **[AGENTS.md](AGENTS.md)** — instructions for AI coding agents working in this repo
 
+`docs/` and this README are **human-owned**: agents propose changes to them
+with evidence but never edit them directly. The knowledge base they reason
+from lives in [`raw/`](raw/) (append-only sources) and [`wiki/`](wiki/)
+(agent-owned synthesis), refreshed by the
+[doc-update workflow](workflows/doc-update.md).
+
 ### Vendored agent skills
 
 `.agents/skills/` holds skills committed to the repo so every contributor and
@@ -110,3 +116,8 @@ npx tsc --noEmit && npx eslint src
 
 A green build locally does **not** guarantee a green Vercel build — see
 [RUNBOOK § Deploys](docs/RUNBOOK.md#deploys) for the two ways that has bitten.
+
+## Appendix
+
+This appendix contains non-essential notes and background information that is
+not required to run the application locally.

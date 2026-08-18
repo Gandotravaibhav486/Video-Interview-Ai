@@ -19,16 +19,20 @@ edit](#why-suggest-not-edit).
 
 ## The three layers
 
-Karpathy's structure, with his `wiki/` renamed to `ai/` for this repo.
+Karpathy's structure, using his original `wiki/` naming.
 
 | Layer | Owner | Rule |
 |---|---|---|
-| `raw/` | Human | **Append-only.** Sources of truth. Never edited, never deleted. |
-| `ai/` | The agent | Owned and rewritten freely. New facts are *folded into* existing pages, not appended to the bottom. |
-| `docs/`, `README.md` | Human | The agent **only suggests**. It must not edit these. |
+| `raw/` | Human | **Append-only.** Sources of truth. Added to, never edited or deleted. |
+| `wiki/` | The agent | Owned outright. Edited freely **at any time**, not just during a doc-update run. New facts are *folded into* existing pages, not appended to the bottom. |
+| `docs/` + `README.md` | Human | **Suggest-only.** The agent proposes changes with evidence and never applies them. |
 
-> `ai/` is a knowledge base at the repo root. It is not `src/lib/ai/`, which is
-> application code. Don't confuse them.
+The boundary is enforced in [AGENTS.md](../AGENTS.md), which every agent
+session loads, so it binds ordinary work too — not just this workflow.
+
+**`README.md` stays at the repo root** rather than moving into `docs/`, because
+GitHub renders it as the repo homepage from that path only. It is protected
+exactly like the files in `docs/`.
 
 ### `raw/` — append-only source of truth
 
@@ -46,7 +50,7 @@ but never modifies them." **This workflow keeps deletion out of `raw/` even
 though it allows adding**, because the moment you can delete from the source
 of truth, you can no longer tell the difference between "we never knew that"
 and "we knew and dropped it." If something in `raw/` is wrong, add a new file
-correcting it and let `ai/` reconcile the two.
+correcting it and let `wiki/` reconcile the two.
 
 Files are named `YYYY-MM-DD-short-slug.md` so ordering is obvious.
 
@@ -54,17 +58,24 @@ Files are named `YYYY-MM-DD-short-slug.md` so ordering is obvious.
 material.** Cost and revenue analyses in particular may belong here but not in
 a public repo — decide per file, and gitignore rather than sanitise.
 
-### `ai/` — the agent's synthesis
+### `wiki/` — the agent's synthesis
 
 Markdown pages the agent owns entirely: one per subsystem or concept, with
 cross-references between them. It creates pages, rewrites them when new
 sources arrive, and keeps the links intact.
 
+**Keep this current as you work, not only when doc-update runs.** If you fix a
+bug, change a schema, or learn something non-obvious about how a subsystem
+behaves, fold it into the relevant `wiki/` page there and then. A doc-update
+run is only as good as what's accumulated since the last one — if `wiki/` is
+only ever written during the run, the run is reconstructing from memory, which
+is the exact failure this structure exists to prevent.
+
 Two special files, per Karpathy:
 
-- **`ai/index.md`** — catalog of every page with a one-line summary, grouped
+- **`wiki/index.md`** — catalog of every page with a one-line summary, grouped
   by category. Updated on every run.
-- **`ai/log.md`** — append-only history. One entry per run, prefixed so it
+- **`wiki/log.md`** — append-only history. One entry per run, prefixed so it
   stays greppable:
 
   ```
@@ -75,20 +86,20 @@ Two special files, per Karpathy:
 
 ## Running it
 
-1. **Read the whole of `raw/` and `ai/`.** Not a sample — the point is to
+1. **Read the whole of `raw/` and `wiki/`.** Not a sample — the point is to
    notice what's missing, and you cannot notice an absence from an excerpt.
 2. **Establish what actually changed.** Don't trust any of the three layers on
-   its own. Check reality: `git log` since the last `ai/log.md` entry, the
+   its own. Check reality: `git log` since the last `wiki/log.md` entry, the
    current schema, the live database, the code itself. This project has a
    standing rule that verification beats assumption, and it applies hardest
    here — documentation drift is exactly the failure mode where a plausible
    stale sentence survives because nobody checked.
-3. **Update `ai/` to match reality.** Fold new facts into the existing page
+3. **Update `wiki/` to match reality.** Fold new facts into the existing page
    rather than appending; rewrite the sentence that's now wrong. Where a new
    source contradicts an existing page, **flag the contradiction explicitly**
    rather than silently overwriting — note both claims, which is newer, and
    which the code actually supports.
-4. **Update `ai/index.md`**, then **append one entry to `ai/log.md`.**
+4. **Update `wiki/index.md`**, then **append one entry to `wiki/log.md`.**
 5. **Produce a suggestion list for the published docs.** Never edit them. For
    each proposed change give:
    - the file and section
@@ -110,10 +121,10 @@ Published docs are different. `README.md`, `docs/ARCHITECTURE.md` and
 `docs/RUNBOOK.md` are what a new contributor trusts, and the runbook in
 particular tells someone what to do during an incident. A confidently-worded
 wrong instruction there is worse than no instruction. So the agent gets a free
-hand in `ai/`, where mistakes are cheap and recoverable, and a review gate on
+hand in `wiki/`, where mistakes are cheap and recoverable, and a review gate on
 anything a human will act on.
 
-The practical consequence: **`ai/` is allowed to be wrong and get corrected
+The practical consequence: **`wiki/` is allowed to be wrong and get corrected
 next run. `docs/` is not.**
 
 ## What to keep out
