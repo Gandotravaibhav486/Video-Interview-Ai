@@ -28,18 +28,28 @@ export default async function AppLayout({
   return (
     <div className="flex min-h-full flex-1 flex-col">
       <header className="border-b">
-        <nav className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
-          <Link href="/dashboard" className="font-semibold">
+        {/* Wraps to a second row below sm. At 375px a single row ran the
+            wordmark straight into the first nav link ("InterviewPrepDashboard")
+            and broke "New interview" across two lines - justify-between gives
+            no gap once the links group is as wide as the space left. */}
+        <nav className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-5 gap-y-2 px-6 py-4">
+          <Link href="/dashboard" className="text-display-sm w-full sm:mr-auto sm:w-auto">
             InterviewPrep
           </Link>
-          <div className="flex items-center gap-4 text-sm">
-            <Link href="/dashboard">Dashboard</Link>
-            <Link href="/interview/new">New interview</Link>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+            <Link href="/dashboard" className="-my-3 py-3 whitespace-nowrap">
+              Dashboard
+            </Link>
+            <Link href="/interview/new" className="-my-3 py-3 whitespace-nowrap">
+              New interview
+            </Link>
             {profile.is_admin && (
-              <Link href="/question-bank">Question bank</Link>
+              <Link href="/question-bank" className="-my-3 py-3 whitespace-nowrap">
+                Question bank
+              </Link>
             )}
             <form action={signOut}>
-              <Button variant="ghost" size="sm" type="submit">
+              <Button variant="ghost" size="sm" className="h-11 sm:h-7" type="submit">
                 Sign out
               </Button>
             </form>

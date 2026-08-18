@@ -27,7 +27,10 @@ const buttonVariants = cva(
         // the colour rules; the global --radius stays untouched, so no
         // existing surface changes shape.
         pill: "h-11 gap-2 rounded-full px-6 text-[0.9375rem] has-data-[icon=inline-end]:pr-5 has-data-[icon=inline-start]:pl-5",
-        "pill-sm": "h-9 gap-1.5 rounded-full px-4 text-sm",
+        // 44px on touch, 36px above: this backs the role chips on
+        // /interview/new, which are the only way forward on that screen,
+        // and 36px is under the 44px minimum for a tap target.
+        "pill-sm": "h-11 gap-1.5 rounded-full px-4 text-sm sm:h-9",
         xs: "h-6 gap-1 rounded-[min(var(--radius-md),10px)] px-2 text-xs in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
         sm: "h-7 gap-1 rounded-[min(var(--radius-md),12px)] px-2.5 text-[0.8rem] in-data-[slot=button-group]:rounded-lg has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3.5",
         lg: "h-9 gap-1.5 px-2.5 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",
