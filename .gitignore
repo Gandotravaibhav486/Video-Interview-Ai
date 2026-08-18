@@ -37,6 +37,15 @@ yarn-error.log*
 # local question-bank review exports (operator's own verification, not shipped)
 /question-bank-export/
 
+# operator's own cost/revenue working notes. Ignored rather than sanitised:
+# a redacted file is still readable in git history, so these must never land
+# in a commit in the first place.
+/financial-analysis.md
+/operating-cost-analysis.md
+
+# R console history, dropped into docs/ by an editor session
+.Rhistory
+
 # per-machine agent settings. The vendored skills in .agents/ (and the
 # .claude/skills symlink into them) ARE committed on purpose - this only
 # excludes the local, machine-specific permission file.
