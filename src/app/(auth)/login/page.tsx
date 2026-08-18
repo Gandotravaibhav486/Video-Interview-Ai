@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { signIn } from "@/lib/actions/auth";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -41,10 +41,23 @@ export default async function LoginPage({
             <Label htmlFor="password">Password</Label>
             <Input id="password" name="password" type="password" required />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <Button type="submit" className="w-full">
+          {error && (
+            <div
+              role="alert"
+              className="rounded-md border border-destructive/30 bg-destructive/5 p-3"
+            >
+              <p className="text-sm text-destructive">{error}</p>
+              <Link
+                href="/signup"
+                className="mt-1 inline-block text-sm underline"
+              >
+                Create an account
+              </Link>
+            </div>
+          )}
+          <SubmitButton pendingText="Signing you in…" className="w-full">
             Log in
-          </Button>
+          </SubmitButton>
         </form>
         <p className="mt-4 text-sm text-muted-foreground">
           No account?{" "}

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { signUp } from "@/lib/actions/auth";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/submit-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -46,10 +46,14 @@ export default async function SignUpPage({
               required
             />
           </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <Button type="submit" className="w-full">
+          {error && (
+            <p role="alert" className="text-sm text-destructive">
+              {error}
+            </p>
+          )}
+          <SubmitButton pendingText="Creating your account…" className="w-full">
             Sign up
-          </Button>
+          </SubmitButton>
         </form>
         <p className="mt-4 text-sm text-muted-foreground">
           Already have an account?{" "}
