@@ -29,7 +29,7 @@ export function DeliveryBreakdownChart({
         <XAxis type="number" domain={[0, 100]} />
         <YAxis type="category" dataKey="name" width={160} tick={{ fontSize: 12 }} />
         <Tooltip />
-        <Bar dataKey="score" fill="var(--color-primary, #2563eb)" radius={4} />
+        <Bar dataKey="score" fill="#1B3A2C" radius={4} />
       </BarChart>
     </ResponsiveContainer>
   );
@@ -52,7 +52,11 @@ export function SubjectBreakdownChart({
         <XAxis dataKey="subject" tick={{ fontSize: 12 }} />
         <YAxis domain={[0, 100]} />
         <Tooltip />
-        <Bar dataKey="score" fill="var(--color-secondary, #16a34a)" radius={4} />
+        {/* Was var(--color-secondary), which is a near-white surface tint -
+            the bars were rendering almost invisibly against the page. The two
+            charts on this page show different things, so they get two
+            different accents rather than one shared token. */}
+        <Bar dataKey="score" fill="#B5613A" radius={4} />
       </BarChart>
     </ResponsiveContainer>
   );

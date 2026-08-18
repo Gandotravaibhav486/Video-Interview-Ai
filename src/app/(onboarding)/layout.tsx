@@ -21,9 +21,8 @@ export default async function OnboardingLayout({
   // this route is reachable regardless of onboarding progress.
   await ensureProfile(supabase, user);
 
-  return (
-    <div className="flex flex-1 items-center justify-center bg-zinc-50 px-4 py-12 dark:bg-black">
-      <div className="w-full max-w-xl">{children}</div>
-    </div>
-  );
+  // Full-bleed and unstyled: the flow owns its own header, footer and
+  // spacing, so wrapping it in a centred max-w column (as this did) would
+  // fight it for the viewport.
+  return <div className="flex flex-1 flex-col">{children}</div>;
 }

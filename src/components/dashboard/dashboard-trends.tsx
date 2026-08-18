@@ -12,7 +12,12 @@ import {
 } from "recharts";
 import type { InterviewSession } from "@/lib/supabase/types";
 
-const LINE_COLORS = ["#2563eb", "#16a34a", "#d97706", "#dc2626", "#7c3aed"];
+// The five palette accents, not recharts' default blue/green/amber/red/violet.
+// Those are cool primaries and read as a foreign element against the warm
+// ground. Canvas-adjacent libraries can't resolve CSS custom properties
+// reliably, so these are the literal hexes the tokens are built from.
+const LINE_COLORS = ["#B5613A", "#4A6B75", "#D9A441", "#5E3038", "#8A8F6B"];
+const OVERALL_COLOR = "#1B3A2C";
 
 export function ScoreTrendChart({ sessions }: { sessions: InterviewSession[] }) {
   const parameterKeys = Array.from(
@@ -50,7 +55,7 @@ export function ScoreTrendChart({ sessions }: { sessions: InterviewSession[] }) 
           type="monotone"
           dataKey="overall"
           name="Overall"
-          stroke="#111827"
+          stroke={OVERALL_COLOR}
           strokeWidth={2}
         />
         {parameterKeys.map((key, i) => (

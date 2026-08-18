@@ -7,9 +7,17 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  /* Was `--font-sans: var(--font-sans)` - self-referential, so it resolved to
+     nothing and `font-sans` on <html> fell through to the browser default.
+     The entire app has been rendering in Times. next/font exposes the family
+     as --font-geist-sans, which is what this has to point at. */
+  --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-instrument-serif);
+  --color-terracotta: var(--terracotta);
+  --color-burgundy: var(--burgundy);
+  --color-teal: var(--teal);
+  --color-gold: var(--gold);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -48,66 +56,86 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Editorial palette. Every value is an exact oklch conversion of the hex it
+   names - the whole point is matching specific colours, so these were
+   converted arithmetically rather than eyeballed. Previously every token here
+   was oklch(x 0 0): literally zero chroma, which is why the app read as
+   generic regardless of layout. */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.9641 0.0041 91.4); /* #F4F3F0 warm off-white ground */
+  --foreground: oklch(0.168 0.002 106.6); /* #0F0F0E */
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.168 0.002 106.6);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --popover-foreground: oklch(0.168 0.002 106.6);
+  --primary: oklch(0.3197 0.0452 162.8); /* #1B3A2C forest green */
+  --primary-foreground: oklch(0.9731 0.0041 91.4); /* #F7F6F3 */
+  --secondary: oklch(0.9251 0.0071 88.6); /* #E8E6E1 */
+  --secondary-foreground: oklch(0.168 0.002 106.6);
+  --muted: oklch(0.9372 0.007 88.6); /* #ECEAE5 */
+  --muted-foreground: oklch(0.5645 0.0106 100.1); /* #77766F */
+  --accent: oklch(0.9372 0.007 88.6);
+  --accent-foreground: oklch(0.168 0.002 106.6);
+  --destructive: oklch(0.5016 0.149 28.6); /* #A8382E, warmed to sit in-palette */
+  --border: oklch(0.916 0.0071 88.6); /* #E5E3DE warm hairline */
+  --input: oklch(0.8734 0.0101 87.5); /* #D8D5CE */
+  --ring: oklch(0.3197 0.0452 162.8);
+
+  /* Category accents. Named rather than numbered because they carry meaning
+     (a mode, a subject) - not a sequence. */
+  --terracotta: oklch(0.5831 0.1209 44.5); /* #B5613A */
+  --burgundy: oklch(0.3714 0.0672 9.8); /* #5E3038 */
+  --teal: oklch(0.5063 0.0411 218.6); /* #4A6B75 */
+  --gold: oklch(0.7507 0.1295 79.8); /* #D9A441 */
+
+  /* Charts read left-to-right as distinct categories, so these are the five
+     accents rather than one ramp. */
+  --chart-1: oklch(0.3197 0.0452 162.8);
+  --chart-2: oklch(0.5831 0.1209 44.5);
+  --chart-3: oklch(0.5063 0.0411 218.6);
+  --chart-4: oklch(0.7507 0.1295 79.8);
+  --chart-5: oklch(0.3714 0.0672 9.8);
+
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.9641 0.0041 91.4);
+  --sidebar-foreground: oklch(0.168 0.002 106.6);
+  --sidebar-primary: oklch(0.3197 0.0452 162.8);
+  --sidebar-primary-foreground: oklch(0.9731 0.0041 91.4);
+  --sidebar-accent: oklch(0.9372 0.007 88.6);
+  --sidebar-accent-foreground: oklch(0.168 0.002 106.6);
+  --sidebar-border: oklch(0.916 0.0071 88.6);
+  --sidebar-ring: oklch(0.3197 0.0452 162.8);
 }
 
+/* The app ships no dark-mode toggle and the design is light-only by
+   intent. This block is kept valid (and warmed to the same hue family) so a
+   user's OS preference or a stray `.dark` class degrades gracefully rather
+   than rendering the old zero-chroma greys - it is deliberately not tuned. */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
+  --background: oklch(0.1805 0.0045 106.6);
+  --foreground: oklch(0.9641 0.0041 91.4);
+  --card: oklch(0.2295 0.005 106.6);
+  --card-foreground: oklch(0.9641 0.0041 91.4);
+  --popover: oklch(0.2295 0.005 106.6);
+  --popover-foreground: oklch(0.9641 0.0041 91.4);
+  --primary: oklch(0.7 0.075 162.8);
+  --primary-foreground: oklch(0.1805 0.0045 106.6);
+  --secondary: oklch(0.2795 0.006 100);
+  --secondary-foreground: oklch(0.9641 0.0041 91.4);
+  --muted: oklch(0.2795 0.006 100);
+  --muted-foreground: oklch(0.715 0.009 100.1);
+  --accent: oklch(0.2795 0.006 100);
+  --accent-foreground: oklch(0.9641 0.0041 91.4);
+  --destructive: oklch(0.65 0.16 28.6);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 18%);
+  --ring: oklch(0.7 0.075 162.8);
+  --chart-1: oklch(0.7 0.075 162.8);
+  --chart-2: oklch(0.6631 0.1209 44.5);
+  --chart-3: oklch(0.6263 0.0511 218.6);
+  --chart-4: oklch(0.7507 0.1295 79.8);
+  --chart-5: oklch(0.5314 0.0872 9.8);
+  --sidebar: oklch(0.2295 0.005 106.6);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -126,5 +154,47 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+@layer components {
+  /* The display face carries the personality; it is never bolded (Instrument
+     Serif ships one weight, which is the point) and never used below ~24px,
+     where its high stroke contrast starts to break up. */
+  .text-display {
+    font-family: var(--font-instrument-serif), Georgia, "Times New Roman", serif;
+    font-weight: 400;
+    font-size: clamp(2.25rem, 5.5vw, 4rem);
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+
+  .text-display-sm {
+    font-family: var(--font-instrument-serif), Georgia, "Times New Roman", serif;
+    font-weight: 400;
+    font-size: clamp(1.5rem, 2.5vw, 2rem);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+}
+
+/* Steps cross-fade rather than slide: a slide implies a spatial relationship
+   between questions that does not exist, and re-triggers on every back-step. */
+@media (prefers-reduced-motion: no-preference) {
+  .step-enter {
+    animation: step-fade 240ms ease-out both;
+  }
+}
+
+@keyframes step-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
