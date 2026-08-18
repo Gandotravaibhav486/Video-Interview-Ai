@@ -7,7 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { SubmitButton } from "@/components/interview/submit-button";
+import { SubmitButton } from "@/components/submit-button";
 import Link from "next/link";
 import {
   Card,
