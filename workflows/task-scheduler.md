@@ -52,148 +52,193 @@ without any other context.
 
 ## Pending
 
-*Last cleaned: 2026-08-06 (second run today, after the tier-2 question-bank
-load, the company-matching fix, the storage cleanup and the docs pass. Every
-pending item below was re-verified against code or the live database and all
-are genuinely still open — nothing moved to Done in this pass. Corrected two
-stale bank counts (498 → 728) and split the duplicate-`0008` migration into
-its own item, since it blocks the next migration rather than the docs.)*
+*Last cleaned: 2026-08-20, after the editorial redesign, the guided onboarding
+rewrite, the role-matching fix and two rounds of mobile work. Every item below
+was re-verified against code or the live database. Three items moved to Done;
+the mobile item was **split** (its layout half is done and verified on a real
+handset, its webcam half is untested and stays open). Five new items were
+added, all found while doing other work. The company-filter bug surfaced by
+this triage was fixed in the same pass — see Done.*
 
-- [ ] Live-interview UX fixes !high — **half of this landed in `c759afe`**;
-      the two remaining sub-items are: (1) group the question agenda by
-      section instead of interleaving subjects — `roundRobinBySubject` is
-      still the only selector in use across `select.ts`,
-      `job-descriptions.ts`, and `domain-interview.ts`, so openers like
-      "tell me about yourself" can still land last; (2) auto-start recording
-      + a ~60s visible timer + an audible chime + transcript auto-scroll in
-      `live-interview-flow.tsx` — verified absent, that file still has only
-      the manual "Start answering" button with no time bound at all, so a
-      candidate can sit indefinitely on a question. Full spec:
+- [ ] **Verify the new onboarding actually converts** !high — 3 of 7 profiles
+      (Akshun Jain, Suraj Phanindra, Jyotsna) never got past the old first
+      screen, all with `resume_prompted = false`, meaning neither the required
+      file input nor the skip button was ever submitted. The 6-step rewrite
+      shipped 2026-08-20 (`5f5bdd0`) moves the resume ask to last, but **no real
+      signup has been through it yet** — a new user (Mario, 2026-08-15) arrived
+      during that work. Watch the next few signups; if `onboarding_completed`
+      still stalls, the redesign treated the wrong cause.
+- [ ] Live-interview UX fixes !high — re-verified 2026-08-20, both sub-items
+      still absent (0 matches for timer/auto-record/chime/autoscroll in
+      `live-interview-flow.tsx`, and `selectGroupedBySection` does not exist):
+      (1) group the agenda by section instead of interleaving subjects —
+      `roundRobinBySubject` is still the only selector, so an opener like "tell
+      me about yourself" can land last; (2) auto-start recording + a ~60s visible
+      timer + an audible chime + transcript auto-scroll — a candidate can still
+      sit indefinitely on a question with no time bound at all. Full spec in
       `~/.claude/plans/i-want-to-explore-twinkling-cocoa.md`.
+- [ ] **Mobile: the webcam/capture path is still completely untested** !high —
+      the *layout* half of the old mobile item is done (see Done). This is the
+      half that actually matters and none of it has been exercised: `getUserMedia`,
+      `MediaRecorder`, the canvas frame loop and the permission flow are exactly
+      the APIs that fail silently on mobile Safari/Chrome, and campus students
+      plausibly interview from a phone. Needs a real handset — emulation cannot
+      test camera, mic, or autoplay policy.
 - [ ] Add a second prompt-cache breakpoint on the live interviewer's growing
-      conversation history — found during the cost analysis: the static
-      system prompt caches correctly (confirmed via real usage data), but
-      `messages[]` has no `cache_control` at all, so the whole transcript is
-      re-billed at full price every turn. That's why live-mode cost nearly
-      doubled per-turn across a session (see `operating-cost-analysis.md`).
-      Concrete, low-risk (pure cost optimization, no behavior change) - worth
-      doing alongside the UX fixes above since both touch the same file.
-- [ ] Test the UI & make it better on mobile phones — completely unverified so
-      far. Webcam capture + MediaRecorder are exactly the APIs that break
-      silently on mobile Safari/Chrome (autoplay policies, permission flows,
-      codec support), and campus students plausibly interview from a phone.
-- [ ] Pressure-test Groq Whisper transcripts and find where it falters — no
-      transcription-quality check has been done all project. A bad transcript
-      silently degrades scoring in both batch and live mode with no visible
-      error anywhere in the pipeline.
-- [ ] Prototype moving the live interviewer (`runInterviewTurn`) from Opus 5
-      to Sonnet 5, with state injection restructured into a user-turn block
-      instead of a mid-conversation system message (Sonnet doesn't support
-      that message type - see `interviewer.ts:11-14`). The single biggest
-      cost lever found in the analysis (~2.5x cheaper, and this is ~90% of
-      live mode's cost premium over batch) - but real regression risk to
-      tool-call reliability, which is why Opus was chosen originally. Do
-      this after the UX-fixes and cache-breakpoint items above, not
-      alongside them - don't stack an architecture change on top of an
-      already-buggy live flow.
-- [ ] Live interview currently only shows transcript, doesn't feel like an
-      interactive interviewer, and the recorder view has no maximize/fullscreen
-      option — flagged as a design decision still to be made (text vs. voice),
-      not a bug to just fix. Worth deciding alongside the UX fixes above since
-      both touch `live-interview-flow.tsx`, but kept separate here since this
-      one needs a product decision first, not just implementation.
+      conversation history — re-confirmed 2026-08-20: `interviewer.ts` has
+      exactly one `cache_control`, on the static system prompt. `messages[]` has
+      none, so the whole transcript is re-billed at full price every turn. That
+      is the actual driver of live mode's per-turn cost climb across a session
+      (`operating-cost-analysis.md`). Pure cost optimisation, no behaviour change.
 - [ ] Retry-on-transient-failure for question-bank generation — a bare network
-      error currently kills a pairing outright and discards the (paid-for)
-      research pass. Flagged twice, never added to the real pipeline (only
-      to throwaway verification scripts). Do this before the tier-2 run below,
-      or risk repeating the exact wasted-spend failure that hit `dream11`.
-      Same class of gap as the live-interview orphaned-turn bug fixed in
-      `c759afe`: an AI call that throws mid-flow leaves partial state behind.
-- [ ] Re-run `product_manager @ dream11` — still outstanding; confirmed
-      2026-08-06 that the bank has 0 rows carrying a `dream11` company tag
-      (re-confirmed after the tier-2 load, 728 rows total), so nothing from
-      this pairing ever landed.
-- [ ] Run tier-2 placement-matrix pairings — **23 of 61 done** as of
-      2026-08-06 (loaded from the user's separate generation chat; see the
-      Done entry below). **38 left**, split by category: it_services 9,
-      global_product 8, finance 7, core_engineering 6, indian_product 4,
-      consulting_analytics 4. Roles still entirely absent from the bank:
+      error still kills a pairing outright and discards the paid-for research
+      pass. Flagged twice, never added to the real pipeline. Do this before the
+      tier-2 run below, or repeat the wasted spend that hit `dream11`.
+- [ ] **Consulting coverage is 10 questions and every one is tagged `bain`**
+      !high — sharpened 2026-08-20 after the company-preference fix. There are
+      exactly 10 `associate_consultant` rows, all `{"bain": 10}`, and 0 tagged
+      `mckinsey` for that role. So a McKinsey consulting interview still gets
+      "Why Bain specifically, among the other top strategy consulting firms?" —
+      the selection code is now doing the right thing and the *data* is the
+      remaining gap. Worse than a generic question, because it names a
+      competitor. Note the bank has **zero company-agnostic rows** (all 728
+      carry a company tag), so top-up can never fall back to neutral questions;
+      generating firm-neutral consulting questions would fix the whole class.
+      `sde` has 313 rows for comparison.
+- [ ] Re-run `product_manager @ dream11` — re-confirmed 2026-08-20: still 0 rows
+      carrying a `dream11` company tag across 728 active rows.
+- [ ] Run tier-2 placement-matrix pairings — 23 of 61 done, **38 left**:
+      it_services 9, global_product 8, finance 7, core_engineering 6,
+      indian_product 4, consulting_analytics 4. Roles still entirely absent:
       `qa_engineer`, `technical_support`, `data_engineer`, `network_engineer`,
       `quant_analyst`, `mechanical_engineer`, `civil_engineer`,
-      `electrical_engineer`, `consultant`. `pairingsByPriority(2)` in
-      `src/lib/questions/placement-matrix.ts`; chat workflow in
-      `workflows/question-bank-generation.md` (run by hand in chat, as tier 1
-      was — zero marginal cost, and the API path can't fit a pairing inside
-      the 300s serverless ceiling anyway). **User is running this themselves
-      in a separate chat.** When the next batch lands, note that the generator
-      sometimes names files/roles by placement-matrix *category*
-      (`global_product`/`indian_product`/`consulting_analytics`) rather than by
-      role — those must be remapped to the real role before insert, or
-      `select.ts`'s `tagMatches()` can never reach them.
-- [ ] Clean up 8 bank questions whose own verifier flagged defects in the
-      question *text* (the verdict `reason` fields say so, but only the verdict
-      enum is stored, so these notes are otherwise lost). Most leak research /
-      process commentary — the interviewer narrating the company's own hiring
-      process back at the candidate, which reads oddly in a live interview.
-      Editable via the admin question-bank page: `sde@cisco` ("Cisco hires into
-      two distinct fresher tracks..."), `sde@salesforce` ("Salesforce's final
-      round has included a 'paper coding' component..."), `sde@samsung` (two:
-      "Samsung's interviews are known for probing projects in real depth...",
-      "Samsung's coding assessment can run up to 3 hours..."), `sde@tcs`
-      ("TCS's technical rounds cover topics like Cloud Computing..."),
-      `analyst@capgemini` ("Even in a non-coding-heavy Analyst role..."),
-      `systems_engineer@tcs` (stray "without writing code on a screen").
-      Also `sde@jp_morgan`'s sliding-window question is tagged `hard` against a
-      documented easy-to-medium bar and should be recalibrated. 4 of the 8 came
-      in with the tier-2 drop; the other 4 have been in the bank since tier 1.
-      (The 9th — `sde@infosys`'s false-premise stem — was fixed 2026-08-06.)
-- [ ] Refine the documentation in `docs/` — first pass written 2026-08-06
-      (`README.md`, `docs/ARCHITECTURE.md`, `docs/RUNBOOK.md`) using the
-      `documentation` skill. It's accurate as of today and every internal link
-      resolves, but it was written in one pass from one person's context, so:
-      (1) **read it as a newcomer** — the ARCHITECTURE turn-loop and
-      "model proposes, code disposes" sections assume more familiarity than a
-      first-time reader has; (2) **add diagrams** — the turn loop and the
-      turns→answers assembly are both easier to see than to read, and there's
-      currently only one ASCII flow; (3) **decide what happens to the loose
-      root-level markdown** (`video-ai-brain.md`, `financial-analysis.md`,
-      `operating-cost-analysis.md`, `article-*.md`) — some belongs in `docs/`,
-      some is private and should stay untracked, and right now the split is
-      accidental rather than chosen; (4) **the RUNBOOK's storage section
-      references a walk-the-bucket script that only exists in chat history** —
-      commit it as a real script under `scripts/` and link it; (5) re-check the
-      "Known limitations" list in ARCHITECTURE against reality before showing
-      the docs to anyone, since several items are actively being worked on and
-      will go stale fastest.
-- [ ] Renumber the **duplicate `0008` migration** — both
-      `0008_jd_based_interview_type.sql` and `0008_question_bank_skills.sql`
-      exist and are applied, so the numbering no longer conveys order. Harmless
-      today, actively misleading the moment anyone writes `0009` or replays the
-      migrations against a fresh database. Renaming an applied file is safe (the
-      database is the source of truth, not the file), but check which was
-      actually applied first before picking the new number. Flagged in
-      `docs/RUNBOOK.md`.
-- [ ] Run tier-3 placement-matrix pairings (36) — same file, `pairingsByPriority(3)`.
-- [ ] Backfill `skills` tags on the original 23 manually-written questions —
-      re-confirmed 2026-08-06 after the tier-2 load: still 0/23 manual rows
-      tagged, and the bank is now 728 rows, so the hand-written questions are
-      an ever-shrinking fraction that Domain Interview's resume-skill matching
-      can never surface.
-- [ ] Pressure test the interview rounds, or build a workflow to test questions
-      for each interview round (note: the video/webcam portion itself can't
-      be exercised by AI, so this is necessarily a partly-manual check).
-- [ ] Live interview: add an option to change target role for a person through
-      profile settings — depends on the profile section below existing first.
-- [ ] Create a profile section: personal details, resume update option, and a
-      way to download reports for all past interviews.
-- [ ] Improve the app's design/UI and make decisions on buttons and overall
-      appearance.
-- [ ] Create a list of basic tests to run each time a new feature is added to
-      the web app — a process/checklist item, not tied to any specific bug.
-- [ ] Research current advancements in AI agents re: interviews — via papers
-      and other startups — and use it to surface more research directions.
+      `electrical_engineer`, `consultant`. **User is running this themselves in a
+      separate chat.** Note the generator sometimes names files by placement-matrix
+      *category* rather than role — those must be remapped before insert, or
+      `select.ts` can never reach them.
+- [ ] Clean up 8 bank questions whose own verifier flagged defects in the question
+      *text* — most leak research/process commentary (the interviewer narrating the
+      company's hiring process back at the candidate). Editable via the admin page:
+      `sde@cisco`, `sde@salesforce`, `sde@samsung` (×2), `sde@tcs`,
+      `analyst@capgemini`, `systems_engineer@tcs`; plus `sde@jp_morgan`'s
+      sliding-window question mis-tagged `hard`.
+- [ ] Pressure-test Groq Whisper transcripts and find where it falters — still no
+      transcription-quality check all project. A bad transcript silently degrades
+      scoring with no visible error anywhere in the pipeline.
+- [ ] Prototype moving `runInterviewTurn` from Opus 5 to Sonnet 5, with state
+      injection restructured into a user-turn block (Sonnet doesn't support the
+      mid-conversation system message — `interviewer.ts:11-14`). Biggest single
+      cost lever (~2.5x), but real regression risk to tool-call reliability. Do
+      after the UX fixes and cache breakpoint, not alongside — don't stack an
+      architecture change on an already-buggy live flow.
+- [ ] Live interview: transcript-only view doesn't feel like an interviewer, and
+      the recorder has no maximize/fullscreen — a product decision (text vs.
+      voice) before it's an implementation task.
+- [ ] Renumber the duplicate `0008` migration — re-confirmed 2026-08-20: both
+      `0008_jd_based_interview_type.sql` and `0008_question_bank_skills.sql` still
+      exist and are applied. Harmless until someone writes `0009` or replays
+      against a fresh database. Check which was applied first before renaming.
+- [ ] Backfill `skills` tags on the 23 manually-written questions — re-confirmed
+      2026-08-20: still **0 of 23** tagged, against a 728-row bank, so the
+      hand-written questions are an ever-shrinking fraction that Domain Interview's
+      resume-skill matching can never surface.
+- [ ] `Input` is 32px tall on mobile (`h-8`) — under the 44px tap-target floor.
+      Left alone deliberately on 2026-08-20: it's the shadcn primitive behind every
+      form in the app, so `h-11 sm:h-8` touches login, signup, the role/company/count
+      fields and resume upload at once. Wants its own review, not a drive-by.
+- [ ] `autoFocus` on three onboarding steps may fight the mobile keyboard — on a
+      handset it pops the keyboard on mount, which collapses `dvh` and reflows a
+      `min-h-dvh` layout mid-transition. Flagged as the standard failure mode but
+      **not observed** — needs the same phone the mobile screenshots came from
+      before deciding.
+- [ ] Refine the documentation in `docs/` — first pass written 2026-08-06. Still
+      open: (1) read it as a newcomer — the turn-loop and "model proposes, code
+      disposes" sections assume too much; (2) add diagrams for the turn loop and the
+      turns→answers assembly; (3) the RUNBOOK's storage section references a
+      walk-the-bucket script that only exists in chat history — commit it under
+      `scripts/` and link it; (4) re-check "Known limitations" against reality.
+      Sub-item on loose root markdown is now partly resolved — `financial-analysis.md`
+      and `operating-cost-analysis.md` were gitignored 2026-08-20.
+- [ ] **Two doc suggestions awaiting a human** (agents may not apply these):
+      (a) `raw/README.md` lines 3 and 9 still link `../ai/`, dead since the
+      `wiki/` rename in `760bac2` — `sed -i '' 's|\.\./ai/|../wiki/|g' raw/README.md`;
+      (b) `README.md:102` says "Currently vendored: `documentation`" when there are
+      now five skills. Both were deliberately left unapplied under the AGENTS.md
+      ownership rule.
+- [ ] Scoring-model evaluation project (local-first) — designed 2026-08-20, handed
+      off as a standalone brief for a separate session. Compare Meta's Muse Glimmer
+      running locally against Sonnet 5 on 50 real scored answers (32 still have
+      frames). Goal is **privacy, not cost** — self-hosting is more expensive at
+      this volume. Note `purgeSessionFrames` is actively deleting the corpus, so
+      snapshotting is step one. Phase 2 is local Whisper, without which the privacy
+      claim is untrue.
+- [ ] `--chart-1..5` tokens are dead — nothing reads them; both chart components
+      use literal hexes. Either wire the charts to the tokens or drop them.
+- [ ] Run tier-3 placement-matrix pairings (36) — `pairingsByPriority(3)`.
+- [ ] Pressure test the interview rounds, or build a workflow to test questions per
+      round (the webcam portion can't be exercised by AI — necessarily partly manual).
+- [ ] Live interview: option to change target role via profile settings — depends on
+      the profile section below existing first.
+- [ ] Create a profile section: personal details, resume update, and a way to
+      download reports for past interviews.
+- [ ] Create a list of basic tests to run each time a new feature ships — a
+      process/checklist item, not tied to any specific bug.
+- [ ] Research current advancements in AI agents re: interviews — papers and other
+      startups — and use it to surface more research directions.
 
 ## Done
+
+- [x] App design/UI overhaul and button decisions — (2026-08-20) `5f5bdd0`.
+      Every colour token was `oklch(x 0 0)` — literally zero chroma — so the app
+      read as stock shadcn regardless of layout. Replaced with a warm ground plus
+      forest green and four named category accents, each an exact arithmetic
+      conversion of its hex rather than eyeballed. Added `pill`/`pill-sm` button
+      sizes and an Instrument Serif display face. Two pre-existing bugs surfaced
+      doing it: `--font-sans: var(--font-sans)` was self-referential, so **the
+      whole app had been rendering in Times New Roman**; and
+      `SubjectBreakdownChart` filled its bars with `var(--color-secondary)`, a
+      near-white surface tint, so those bars were nearly invisible. The charts
+      turned out not to read `--chart-*` at all — both files now use the palette.
+- [x] Mobile UI — layout half — (2026-08-20) `64d935f`, `ae39b51`. Verified at
+      375px and on the user's own handset. The header rendered as
+      "InterviewPrepDashboard" with "New interview" broken across two lines;
+      wrapping fixed the clipping but produced a three-line flush-left header on a
+      real phone, so the nav now collapses behind a 44px control pinned top right
+      with a right-aligned panel. Tap targets raised from ~20/28/36px to a measured
+      44px across nav links, sign-out and the role chips. Note `py-2` was **not**
+      enough — 16px on a 20px line box lands at 36px, caught only by measuring the
+      DOM rather than reading the class names. The webcam/capture half stays open
+      above.
+- [x] Wrong-role interview agendas — (2026-08-20) `78b0ab3`. A McKinsey consulting
+      interview asked about recursion, SQL window functions, Moore vs Mealy machines
+      and JavaScript's event loop. `tagMatches` compared whole strings, so
+      "Consulting" could not reach the tag `associate_consultant`; that returned
+      zero eligible rows and one line — `pool = eligible.length > 0 ? eligible : bank`
+      — silently substituted all 728 questions, round-robining across 38 subjects.
+      The student was served electronics questions while the right consulting
+      questions sat unused. Replaced with token-subset matching plus light stemming
+      (the same shape as `companyMatches`): validated against all 16 real tags,
+      18 roles unchanged, zero regressions. The silent fallback is gone —
+      `/interview/new` now says the role isn't covered and offers the JD path plus
+      the 16 real roles as one-click alternatives. 2 of 10 bank-sourced sessions had
+      been affected.
+- [x] Login feedback and error copy — (2026-08-20) `0567099`. A slow login looked
+      identical to a dead button on a phone; both auth forms now hold
+      "Signing you in…" disabled for the whole request. The failure message points
+      at sign-up but deliberately does **not** say whether the account exists —
+      verified against this project's Supabase that a nonexistent address and a real
+      address with a wrong password return byte-identical
+      `invalid_credentials`, so distinguishing them would require adding an
+      account-enumeration oracle.
+- [x] Doc ownership boundary bound in AGENTS.md — (2026-08-20) `817d694`. The rule
+      previously lived only in `workflows/doc-update.md`, so it applied when that
+      workflow ran and nowhere else.
+- [x] Four more agent skills vendored + working notes gitignored — (2026-08-20)
+      `c4e8b06`. `supabase-postgres-best-practices`, `frontend-design`,
+      `web-design-guidelines`, `find-skills`. Two carry Snyk "Med" ratings for real
+      reasons worth remembering: `web-design-guidelines` fetches its actual rules
+      from a live URL at run time (so its behaviour is not pinned by
+      `skills-lock.json`), and `find-skills` instructs installing with `-y`.
 
 - [x] Company tag matching no longer collides across word boundaries —
       (2026-08-06) `9f8a774`. `tagMatches()` tested raw substrings both ways,

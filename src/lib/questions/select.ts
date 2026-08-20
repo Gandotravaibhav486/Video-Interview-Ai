@@ -212,9 +212,6 @@ export function selectSessionQuestions({
     if (subjects && subjects.length > 0 && !subjects.includes(q.subject)) {
       return false;
     }
-    if (interviewType === "company_specific" && companies.length > 0) {
-      if (!companyMatches(q.company_tags, companies)) return false;
-    }
     return true;
   });
 
@@ -224,9 +221,39 @@ export function selectSessionQuestions({
   // every question is still for the right role.
   const pool = eligible.length > 0 ? eligible : roleEligible;
 
-  return {
-    questions: roundRobinBySubject(pool, questionCount),
-    roleUnavailable: false,
-    availableRoles,
-  };
+  // Company is a PREFERENCE, applied for every interview type rather than
+  // only company_specific.
+  //
+  // It used to be gated on `interviewType === "company_specific"`, and the
+  // manual form hardcodes hr_mixed - so the company a student typed was
+  // stored on the session and then ignored during selection. A session
+  // recorded with company "Mckinsey" was served "Why Bain specifically,
+  // among the other top strategy consulting firms?".
+  //
+  // A hard filter is not the fix. Every row in this bank carries a company
+  // tag (none are company-agnostic), so a strict filter yields 10-32 rows for
+  // a typical pairing but zero for others - Consulting @ McKinsey has no
+  // company-tagged rows at all - and an empty result would fall back to the
+  // whole role pool, discarding the company completely. Taking company
+  // matches first and topping up from the role pool degrades smoothly
+  // instead: a student always gets their company's questions where they
+  // exist, and a full-length interview either way.
+  const preferred =
+    companies.length > 0
+      ? pool.filter((q) => companyMatches(q.company_tags, companies))
+      : [];
+
+  const questions = roundRobinBySubject(preferred, questionCount);
+
+  if (questions.length < questionCount) {
+    const taken = new Set(questions.map((q) => q.id));
+    questions.push(
+      ...roundRobinBySubject(
+        pool.filter((q) => !taken.has(q.id)),
+        questionCount - questions.length
+      )
+    );
+  }
+
+  return { questions, roleUnavailable: false, availableRoles };
 }
