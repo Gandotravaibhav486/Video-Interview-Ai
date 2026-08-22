@@ -52,13 +52,15 @@ without any other context.
 
 ## Pending
 
-*Last cleaned: 2026-08-20, after the editorial redesign, the guided onboarding
-rewrite, the role-matching fix and two rounds of mobile work. Every item below
-was re-verified against code or the live database. Three items moved to Done;
-the mobile item was **split** (its layout half is done and verified on a real
-handset, its webcam half is untested and stays open). Five new items were
-added, all found while doing other work. The company-filter bug surfaced by
-this triage was fixed in the same pass — see Done.*
+*Last cleaned: 2026-08-21. Short pass on top of the 2026-08-20 clean. The
+company-filter fix shipped (`98c2311`); firm-neutral consulting questions were
+generated, which **partly** resolves the consulting-coverage item and produced a
+new finding about the generation pipeline that is now its own item. Five items
+were added from the user's content/research direction. Re-verified against the
+live database: bank 736 active (6 deactivated on purpose), consulting 18 (8
+firm-neutral / 10 bain), manual rows still 0/23 skill-tagged, dream11 still 0,
+and **still 3 profiles stalled in onboarding** with no new signup since
+2026-08-15 — so the onboarding rewrite remains unvalidated by real traffic.*
 
 - [ ] **Verify the new onboarding actually converts** !high — 3 of 7 profiles
       (Akshun Jain, Suraj Phanindra, Jyotsna) never got past the old first
@@ -94,17 +96,28 @@ this triage was fixed in the same pass — see Done.*
       error still kills a pairing outright and discards the paid-for research
       pass. Flagged twice, never added to the real pipeline. Do this before the
       tier-2 run below, or repeat the wasted spend that hit `dream11`.
-- [ ] **Consulting coverage is 10 questions and every one is tagged `bain`**
-      !high — sharpened 2026-08-20 after the company-preference fix. There are
-      exactly 10 `associate_consultant` rows, all `{"bain": 10}`, and 0 tagged
-      `mckinsey` for that role. So a McKinsey consulting interview still gets
-      "Why Bain specifically, among the other top strategy consulting firms?" —
-      the selection code is now doing the right thing and the *data* is the
-      remaining gap. Worse than a generic question, because it names a
-      competitor. Note the bank has **zero company-agnostic rows** (all 728
-      carry a company tag), so top-up can never fall back to neutral questions;
-      generating firm-neutral consulting questions would fix the whole class.
-      `sde` has 313 rows for comparison.
+- [ ] **Consulting coverage: 18 questions, still thin** — partly resolved
+      2026-08-21. Was 10, all tagged `bain`; 8 firm-neutral questions were
+      generated and inserted (`company_tags = '{}'`, which `companyMatches`
+      treats as matching every firm), so McKinsey/BCG interviews now return
+      6/6 questions that name no competitor — verified against the live bank.
+      Still thin: 18 rows against a 6-10 question interview means a student who
+      repeats it sees most of the pool. Wants a second firm-neutral batch, and
+      **the role must be scoped explicitly to strategy consulting** when
+      generating — see the pipeline item below for why.
+- [ ] **The generation pipeline conflates two different "Associate Consultant"
+      jobs** !high — found 2026-08-21 running a firm-neutral batch. The research
+      pass correctly flagged the ambiguity itself ("Associate Consultant is not
+      one role... two almost opposite interview archetypes" — Bain-style strategy
+      vs Infosys/TCS-style IT services), then the generation pass merged both and
+      **the verifier marked all 14 questions "grounded", zero rejected** — six of
+      them `dbms`/`oops`/`dsa`/`web_development`/`operating_systems`. SQL joins
+      and linked lists, tagged as consulting. The six were deactivated
+      (`is_active = false`, recoverable) rather than deleted. Two fixes needed
+      before the remaining 38 tier-2 pairings run: (a) disambiguate the role in
+      the prompt when a title spans job families; (b) tighten the verifier — this
+      is the same "too lenient" signal as tier-2's 0-of-600 rejection rate, now
+      with a concrete reproduction to test against.
 - [ ] Re-run `product_manager @ dream11` — re-confirmed 2026-08-20: still 0 rows
       carrying a `dream11` company tag across 728 active rows.
 - [ ] Run tier-2 placement-matrix pairings — 23 of 61 done, **38 left**:
@@ -174,6 +187,56 @@ this triage was fixed in the same pass — see Done.*
       claim is untrue.
 - [ ] `--chart-1..5` tokens are dead — nothing reads them; both chart components
       use literal hexes. Either wire the charts to the tokens or drop them.
+- [ ] **Dogfood + content channel** — sit a full mock interview on
+      mockintervew.com as a real candidate, screen-record the run, and publish
+      it. Four steps, in order: (1) do the interview; (2) record it while doing
+      it; (3) create the YouTube channel; (4) start posting the runs. Doubles as
+      the most honest QA the product can get — every bug this project has found
+      by hand (wrong-role agendas, the three-line header, no login feedback)
+      would have shown up in one recorded run. **Do this on a phone** if
+      possible: the webcam/`MediaRecorder` path is still completely untested on
+      mobile (separate item above), and a recorded attempt either proves it
+      works or produces the bug report.
+- [ ] Decide on an Instagram channel alongside YouTube — same footage, shorter
+      cuts. Worth deciding rather than drifting into: the audience for campus
+      placement prep is plausibly more reachable on Instagram/Reels than
+      YouTube long-form, and the two demand different edits of the same
+      recording. Not a build task; a positioning one.
+- [ ] Apply **LLM-as-an-Interviewer** (arXiv 2412.10424v3, ACL 2025 Findings)
+      to scoring — read 2026-08-21, PDF in `~/Downloads`. Read the empirical
+      section before building: the abstract claims it addresses "high variance
+      across runs", but §7/Table 6 is more qualified — std *decreases* on
+      DepthQA, *increases* on MATH, and the paper's own summary is "excluding
+      MATH-hard, the standard deviation remains stable", i.e. does not blow up
+      rather than is reduced. Three transferable pieces, most useful first:
+      (1) **Question Modification** — the interviewer rephrases seed questions
+      from the bank at interview time. Their motivation is benchmark
+      contamination; ours is a student practising twice against 728 static
+      questions and memorising them. Directly applicable and arguably the
+      biggest win. (2) **Interview Report** — structured aggregation of the
+      whole interaction rather than one score; we're partway there with
+      per-question feedback plus session summary. (3) the verbosity-bias check,
+      split out as its own item below. Note the paper evaluates *LLMs*, not humans, so the feedback-and-
+      retry loop does not transfer as-is: giving a candidate a second attempt is
+      exactly the mechanism that *raised* variance on hard items.
+- [ ] **Verbosity-bias check on existing scores** — correlate transcript
+      length against `overall_score` (and against each of the five rubric
+      parameters) across the 50 answers already scored in production. No new
+      infrastructure, no API spend: one query over `answers` joined to
+      `live_turns`, plus a correlation. If the coefficient is meaningfully
+      positive, the rubric is partly rewarding word count, and every score
+      already shown to a student carries that. Method from LLM-as-an-Interviewer
+      §7, which runs the same length-vs-score correlation on its own framework.
+      Deliberately kept as a to-do rather than run on 2026-08-21.
+- [ ] Follow-up reading queued from the above: [Multi-Turn Dialogue Evaluator
+      from Multiple LLM Judges](https://arxiv.org/pdf/2508.00454),
+      [LLM-as-a-judge survey](https://arxiv.org/pdf/2411.16594),
+      [Multi-Turn Agent Evaluation survey](https://arxiv.org/pdf/2503.22458),
+      [Static-to-Dynamic contamination benchmarks](https://arxiv.org/pdf/2502.17521).
+      Plus, from the fairness search: multimodal fusion "increases bias and
+      reduces fairness" vs verbal-only (arXiv 2305.02629, PDF also in
+      `~/Downloads`) — the strongest external argument yet for the
+      frames-vs-no-frames decision.
 - [ ] Run tier-3 placement-matrix pairings (36) — `pairingsByPriority(3)`.
 - [ ] Pressure test the interview rounds, or build a workflow to test questions per
       round (the webcam portion can't be exercised by AI — necessarily partly manual).
@@ -187,6 +250,27 @@ this triage was fixed in the same pass — see Done.*
       startups — and use it to surface more research directions.
 
 ## Done
+
+- [x] The Company field on `/interview/new` now affects question selection —
+      (2026-08-21) `98c2311`. Company filtering only ran when `interview_type`
+      was `company_specific`, and the manual form hardcodes `hr_mixed`, so the
+      company a student typed was stored on the session and then ignored. A
+      session recorded with company "Mckinsey" was served "Why Bain
+      specifically, among the other top strategy consulting firms?". Company is
+      now a *preference* applied for every type, not a gate on one: a hard
+      filter was rejected because every row in this bank carries a company tag
+      (there are no company-agnostic rows), so a strict filter returns 10-32
+      rows for a typical pairing but **zero** for Consulting @ McKinsey — and an
+      empty result would have fallen back to the whole role pool, discarding the
+      company entirely. Take company matches first, top up from the role pool.
+      Verified live: sde@amazon, business_analyst@amazon, sde@tcs,
+      product_manager@flipkart and sde@zoho all return 100% company-matched
+      agendas at 6 and 10 questions.
+- [x] Firm-neutral consulting questions generated — (2026-08-21) 8 inserted with
+      empty `company_tags`, so they match any firm. McKinsey and BCG interviews
+      now return 6/6 questions naming no competitor. **6 of the 14 generated were
+      off-role and were deactivated** — see the pipeline item in Pending; the run
+      reproduced the exact bug class it was meant to fix, which is the useful part.
 
 - [x] App design/UI overhaul and button decisions — (2026-08-20) `5f5bdd0`.
       Every colour token was `oklch(x 0 0)` — literally zero chroma — so the app
